@@ -7,8 +7,14 @@ namespace WaveSabrePlayerLib
 		, callbackData(callbackData)
 		, sampleRate(sampleRate)
 		, bufferSizeMs(bufferSizeMs)
+		, shutdown(false)
+		, oldPlayCursorPos(0)
+		, bytesRendered(0)
+		, buffer(nullptr)
 	{
-		shutdown = false;
+		int bitsPerSample = 16;
+		int blockAlign = SongRenderer::NumChannels * bitsPerSample / 8;
+		bufferSizeBytes = sampleRate * blockAlign * bufferSizeMs / 1000;
 
 		thread = CreateThread(0, 0, threadProc, (LPVOID)this, 0, 0);
 		SetThreadPriority(thread, THREAD_PRIORITY_HIGHEST);
@@ -20,6 +26,27 @@ namespace WaveSabrePlayerLib
 		shutdown = true;
 
 		WaitForSingleObject(thread, INFINITE);
+	}
+
+	int DirectSoundRenderThread::GetPlayPositionMs()
+	{
+		if (!buffer)
+			return 0;
+
+		int bitsPerSample = 16;
+		int blockAlign = SongRenderer::NumChannels * bitsPerSample / 8;
+
+		int playCursorPos;
+		buffer->GetCurrentPosition((LPDWORD)&playCursorPos, 0);
+
+		auto playPositionCriticalSectionGuard = playPositionCriticalSection.Enter();
+
+		long long totalBytesRead = playCursorPos - oldPlayCursorPos;
+		if (totalBytesRead < 0)
+			totalBytesRead += bufferSizeBytes;
+		totalBytesRead += bytesRendered;
+
+		return (int)(totalBytesRead / blockAlign * 1000 / sampleRate);
 	}
 
 	DWORD WINAPI DirectSoundRenderThread::threadProc(LPVOID lpParameter)
@@ -35,9 +62,6 @@ namespace WaveSabrePlayerLib
 		int blockAlign = SongRenderer::NumChannels * bitsPerSample / 8;
 		int bytesPerSec = sampleRate * blockAlign;
 
-		int bufferSizeBytes = sampleRate * blockAlign * renderThread->bufferSizeMs / 1000;
-
-		LPDIRECTSOUNDBUFFER buffer;
 		WAVEFORMATEX bufferFormat =
 		{
 			WAVE_FORMAT_PCM,
@@ -52,15 +76,14 @@ namespace WaveSabrePlayerLib
 		{
 			sizeof(DSBUFFERDESC),
 			DSBCAPS_GLOBALFOCUS | DSBCAPS_GETCURRENTPOSITION2,
-			(DWORD)bufferSizeBytes,
+			(DWORD)renderThread->bufferSizeBytes,
 			0,
 			&bufferFormat,
 			GUID_NULL
 		};
-		device->CreateSoundBuffer(&bufferDesc, &buffer, 0);
+		device->CreateSoundBuffer(&bufferDesc, &renderThread->buffer, 0);
 
-		int oldPlayCursorPos = 0;
-		buffer->Play(0, 0, DSBPLAY_LOOPING);
+		renderThread->buffer->Play(0, 0, DSBPLAY_LOOPING);
 
 		// We don't need to enter/leave a critical section here since there's only one writer for this value.
 		while (!renderThread->shutdown)
@@ -69,20 +92,24 @@ namespace WaveSabrePlayerLib
 				auto criticalSectionGuard = renderThread->criticalSection.Enter();
 
 				int playCursorPos;
-				buffer->GetCurrentPosition((LPDWORD)&playCursorPos, 0);
-				int bytesToRender = playCursorPos - oldPlayCursorPos;
+				renderThread->buffer->GetCurrentPosition((LPDWORD)&playCursorPos, 0);
+				int bytesToRender = playCursorPos - renderThread->oldPlayCursorPos;
 				if (bytesToRender)
 				{
-					if (bytesToRender < 0) bytesToRender += bufferSizeBytes;
+					if (bytesToRender < 0) bytesToRender += renderThread->bufferSizeBytes;
 					if (bytesToRender >= 1000)
 					{
 						SongRenderer::Sample *p1, *p2;
 						int b1, b2;
-						buffer->Lock(oldPlayCursorPos, bytesToRender, (LPVOID *)&p1, (LPDWORD)&b1, (LPVOID *)&p2, (LPDWORD)&b2, 0);
+						renderThread->buffer->Lock(renderThread->oldPlayCursorPos, bytesToRender, (LPVOID *)&p1, (LPDWORD)&b1, (LPVOID *)&p2, (LPDWORD)&b2, 0);
 						renderThread->callback(p1, b1 / sizeof(SongRenderer::Sample), renderThread->callbackData);
 						if (b2) renderThread->callback(p2, b2 / sizeof(SongRenderer::Sample), renderThread->callbackData);
-						buffer->Unlock(p1, b1, p2, b2);
-						oldPlayCursorPos = playCursorPos;
+						renderThread->buffer->Unlock(p1, b1, p2, b2);
+
+						auto playPositionCriticalSectionGuard = renderThread->playPositionCriticalSection.Enter();
+
+						renderThread->oldPlayCursorPos = playCursorPos;
+						renderThread->bytesRendered += bytesToRender;
 					}
 				}
 			}
@@ -90,8 +117,8 @@ namespace WaveSabrePlayerLib
 			Sleep(3);
 		}
 
-		buffer->Stop();
-		buffer->Release();
+		renderThread->buffer->Stop();
+		renderThread->buffer->Release();
 		device->Release();
 
 		return 0;
