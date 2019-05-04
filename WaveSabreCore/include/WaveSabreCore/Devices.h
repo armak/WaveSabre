@@ -6,6 +6,7 @@
 #include "Thunder.h"
 #include "Adultery.h"
 #include "Specimen.h"
+#include "Shimmer.h"
 
 #include "Scissor.h"
 #include "Leveller.h"
