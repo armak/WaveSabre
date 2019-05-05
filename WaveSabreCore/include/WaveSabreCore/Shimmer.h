@@ -77,7 +77,7 @@ namespace WaveSabreCore
 
 		static double ratioScalar(double coarse, double fine);
 
-		float osc1Pitch, osc1Finetune, osc1Volume, osc1Partials, osc1Pattern;
+		float osc1Octave, osc1Pitch, osc1Volume, osc1Partials, osc1Pattern;
 		//float osc1Pitch, osc1Fine, osc1Volume, osc1Partials, osc1Pattern;
 		float attack, decay, sustain, release;
 		//float partialAttack, partialDecay, partialSustain, partialRelease;

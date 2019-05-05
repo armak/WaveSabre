@@ -10,8 +10,8 @@ namespace WaveSabreCore
 	{
 		for (int i = 0; i < maxVoices; i++) voices[i] = new ShimmerVoice(this);
 
+		osc1Octave = 0.0f;
 		osc1Pitch = 0.5f;
-		osc1Finetune = 0.5f;
 		osc1Volume = 0.5f;
 		osc1Partials = 0.25f;
 		osc1Pattern = 0.0f;
@@ -28,7 +28,7 @@ namespace WaveSabreCore
 		sustain = 1.0f;
 		release = 1.0f;
 
-		masterLevel = 1.0f;
+		masterLevel = 0.5f;
 
 		pitchAttack = 1.0f;
 		pitchDecay = 5.0f;
@@ -59,8 +59,8 @@ namespace WaveSabreCore
 	{
 		switch ((ParamIndices)index)
 		{
-		case ParamIndices::Osc1Pitch: osc1Pitch = value; break;
-		case ParamIndices::Osc1Finetune: osc1Finetune = value; break;
+		case ParamIndices::Osc1Pitch: osc1Octave = value; break;
+		case ParamIndices::Osc1Finetune: osc1Pitch = value; break;
 		case ParamIndices::Osc1Volume: osc1Volume = value; break;
 		case ParamIndices::Osc1Partials: osc1Partials = value; break;
 		case ParamIndices::Osc1Pattern: osc1Pattern = value; break;
@@ -102,8 +102,8 @@ namespace WaveSabreCore
 		{
 		case ParamIndices::Osc1Pitch:
 		default:
-			return osc1Pitch;
-		case ParamIndices::Osc1Finetune: return osc1Finetune;
+			return osc1Octave;
+		case ParamIndices::Osc1Finetune: return osc1Pitch;
 		case ParamIndices::Osc1Volume: return osc1Volume;
 		case ParamIndices::Osc1Partials: return osc1Partials;
 		case ParamIndices::Osc1Pattern: return osc1Pattern;
@@ -144,7 +144,6 @@ namespace WaveSabreCore
 	Shimmer::ShimmerVoice::ShimmerVoice(Shimmer *shimmer)
 	{
 		this->shimmer = shimmer;
-		this->shimmer->modulationPhase = 2.0f*3.14159f*(0.5f+0.5f*Helpers::RandFloat());
 	}
 
 	SynthDevice *Shimmer::ShimmerVoice::SynthDevice() const
@@ -160,9 +159,9 @@ namespace WaveSabreCore
 		const float leftPanScalar = Helpers::PanToScalarLeft(Pan);
 		const float rightPanScalar = Helpers::PanToScalarRight(Pan);
 
-		const double osc1RatioScalar = ratioScalar((double)shimmer->osc1Pitch, (double)shimmer->osc1Finetune);
+		const double osc1RatioScalar = ratioScalar((double)shimmer->osc1Octave, (double)shimmer->osc1Pitch);
 
-		double partialsd = 255.0f * shimmer->osc1Partials;
+		double partialsd = 200.0f * shimmer->osc1Partials;
 		const double partialFract = modf(partialsd, &partialsd);
 		const int partials = static_cast<int>(partialsd);
 
@@ -174,9 +173,13 @@ namespace WaveSabreCore
 
 		double baseNote = GetNote() + Detune + shimmer->Rise * 24.0f;
 
-		// Center frequency for the spread parameter
-		// TODO: completely wrong at the moment
-		float center = fminf(Helpers::CurrentSampleRate * 0.5, Helpers::Mix(baseNote, baseNote+static_cast<double>(partials*spacing), 0.5f));
+		// This is not very useful at the moment, should be calculated in frequency domain
+		float center = 1.0f + partials * 0.5f;
+		// Limit center to half of Nyquist because that seems reasonable
+		while (Helpers::NoteToFreq(baseNote)*center*osc1RatioScalar > Helpers::CurrentSampleRate * 0.25)
+		{
+			center -= 1.0f;
+		}
 
 		for (int i = 0; i < numSamples; i++)
 		{
@@ -185,15 +188,17 @@ namespace WaveSabreCore
 			float currentMod = Helpers::FastSin(shimmer->modulationPhase)*shimmer->partialModDepth;
 			float modInterpolation = Helpers::Mix(0.0f, currentMod, shimmer->partialModDepth);
 
+			osc1Output = 0.0;
 			int index = 0;
 			for (int p = 0; p <= partials*spacing; p += spacing)
 			{
 				// Modulation stuff
 				const float strength = Helpers::Mix(shimmer->partialVolTableA[index], shimmer->partialVolTableB[index], modInterpolation);
-				const float shift = (Helpers::Mix(shimmer->partialShiftTableA[index], shimmer->partialShiftTableB[index], 0.0f)) * shimmer->partialFine * spacing;
+				//const float shift = (Helpers::Mix(shimmer->partialShiftTableA[index], shimmer->partialShiftTableB[index], modInterpolation)) * shimmer->partialFine * spacing;
+				const float shift = shimmer->partialShiftTableA[index] * shimmer->partialFine * spacing;
 				// Shift only the harmonics, not the fundamental
 				if(p > 0)
-					p += static_cast<int>((static_cast<double>(spacing - 1))*(shimmer->partialCoarseTable[index])*shimmer->partialCoarse);
+					p += static_cast<int>(0.5+(static_cast<double>(spacing - 1))*(shimmer->partialCoarseTable[index])*shimmer->partialCoarse);
 
 				double overtone = static_cast<double>(p+1);
 				overtone += shift;
@@ -201,22 +206,28 @@ namespace WaveSabreCore
 				overtone = Helpers::Mix(overtone, center, 1.0f - 2.0f*shimmer->partialSpread);
 				const double frequency = Helpers::NoteToFreq(baseNote)*overtone;
 				// Band-limiting (not sure if works properly yet, too many parameters affecting the pitch)
-				if (frequency > Helpers::CurrentSampleRate * 0.5)
+				if (frequency*osc1RatioScalar > Helpers::CurrentSampleRate * 0.5)
 					break;
+				// Crude high-pass
+				if (frequency*osc1RatioScalar < 10.0)
+					continue;
 
+				// Actual oscillator, copied from Falcon
 				const double osc1Input = osc1Phase / Helpers::CurrentSampleRate * 2.0 * 3.141592 * overtone;
 				float partial = Helpers::FastCos(osc1Input) * osc1Env.GetValue() * 13.25;
 
 				// Use the fracional component of of the partial count (a floating point value)
 				// to change the amplitude of the last partial so that they don't just "pop"
+				// Might not work entirely correctly? IDK
 				if(p == partials * spacing)
 					partial *= partialFract;
 
-				osc1Output += partial * Helpers::Mix(0.5f, strength, pattern);
+				// This is the additive part
+				osc1Output += partial * Helpers::Mix(0.5f, strength, pattern)/static_cast<double>(index+1);
 				index += 1;
 			}
 
-			float finalOutput = (float)osc1Output * masterLevelScalar * 0.01f;
+			float finalOutput = (float)osc1Output * masterLevelScalar * 0.5f;
 			outputs[0][i] += finalOutput * leftPanScalar;
 			outputs[1][i] += finalOutput * rightPanScalar;
 
@@ -254,6 +265,7 @@ namespace WaveSabreCore
 		pitchEnv.Trigger();
 
 		osc1Output = 0.0;
+		this->shimmer->modulationPhase = 2.0f*3.14159265f*(0.5f + 0.5f*Helpers::RandFloat());
 	}
 
 	void Shimmer::ShimmerVoice::NoteOff()

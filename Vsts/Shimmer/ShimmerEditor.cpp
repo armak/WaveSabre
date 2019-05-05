@@ -14,9 +14,9 @@ ShimmerEditor::~ShimmerEditor()
 
 void ShimmerEditor::Open()
 {
-	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Pitch, "PITCH");
-	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Finetune, "FINETUNE");
-	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Volume, "VOLUME");
+	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Pitch, "OCTAVE");
+	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Finetune, "PITCH");
+	//addKnob((VstInt32)Shimmer::ParamIndices::Osc1Volume, "VOLUME");
 	
 	addSpacer();
 	addSpacer();
@@ -35,13 +35,11 @@ void ShimmerEditor::Open()
 
 
 	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Partials, "PARTIALS");
-	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Pattern, "PATTERN");
 	addKnob((VstInt32)Shimmer::ParamIndices::PartialSpacing, "SPACING");
-	//addSpacer();
-	addKnob((VstInt32)Shimmer::ParamIndices::PartialCoarse, "RANDOM");
-	//addSpacer();
-	addKnob((VstInt32)Shimmer::ParamIndices::PartialFine, "SHIFT");
-	addKnob((VstInt32)Shimmer::ParamIndices::PartialSpread, "SPREAD");
+	addKnob((VstInt32)Shimmer::ParamIndices::Osc1Pattern, "PATTERN");
+	addKnob((VstInt32)Shimmer::ParamIndices::PartialCoarse, "SHUFFLE");
+	addKnob((VstInt32)Shimmer::ParamIndices::PartialFine, "DRIFT");
+	addKnob((VstInt32)Shimmer::ParamIndices::PartialSpread, "WIDTH");
 	addSpacer();
 	addKnob((VstInt32)Shimmer::ParamIndices::PartialModFreq, "MOD FREQ");
 	addKnob((VstInt32)Shimmer::ParamIndices::PartialModDepth, "MOD DEPTH");
