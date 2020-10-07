@@ -45,6 +45,9 @@ namespace WaveSabreCore
 			return x * x;
 		}
 
+		static double Pow(double x, double y);
+		static float PowF(float x, float y);
+
 		static double FastCos(double x);
 		static double FastSin(double x);
 

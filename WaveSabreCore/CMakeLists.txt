@@ -6,6 +6,7 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/Cathedral.h
 	include/WaveSabreCore/Chamber.h
 	include/WaveSabreCore/Comb.h
+	include/WaveSabreCore/Corrosion.h
 	include/WaveSabreCore/Crusher.h
 	include/WaveSabreCore/DelayBuffer.h
 	include/WaveSabreCore/Device.h
@@ -33,6 +34,7 @@ add_library(WaveSabreCore
 	src/Cathedral.cpp
 	src/Chamber.cpp
 	src/Comb.cpp
+	src/Corrosion.cpp
 	src/Crusher.cpp
 	src/DelayBuffer.cpp
 	src/Device.cpp
