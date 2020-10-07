@@ -15,5 +15,6 @@
 #include "Chamber.h"
 #include "Twister.h"
 #include "Cathedral.h"
+#include "Corrosion.h"
 
 #endif
