@@ -156,7 +156,7 @@ namespace WaveSabreCore
 				}
 			}
 		}
-#define DECIMATE
+
 #ifndef CHEAP_OVERSAMPLING
 		// Decimate oversampled result.
 		if(oversampling == Oversampling::X2)
@@ -165,10 +165,10 @@ namespace WaveSabreCore
 			{
 				for (int j = 0; j < numSamples; j++)
 				{
-#ifdef DECIMATE
-					outputs[i][j] = (buffer[i][j*2]+buffer[i][j*2+1])*0.5f;
+#ifdef AVERAGE
+					outputs[i][j] = Helpers::Mix(inputs[i][j], (buffer[i][j*2]+buffer[i][j*2+1])*0.5f, dryWet);
 #else
-					outputs[i][j] = buffer[i][j*2+1];
+					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*2+1], dryWet);
 #endif
 				}
 			}
@@ -179,12 +179,12 @@ namespace WaveSabreCore
 			{
 				for (int j = 0; j < numSamples; j++)
 				{
-#ifndef DECIMATE
-					outputs[i][j] = (buffer[i][j*4]+buffer[i][j*4+1]+buffer[i][j*4+2]+buffer[i][j*4+3])*0.25f;
+#ifdef AVERAGE
+					outputs[i][j] = Helpers::Mix(input, (buffer[i][j*4]+buffer[i][j*4+1]+buffer[i][j*4+2]+buffer[i][j*4+3])*0.25f, dryWet);
 #else
 					// Don't know which sample is correct to decimate...
 					// the third sample seems to have the best characteristics.
-					outputs[i][j] = buffer[i][j*4+2];
+					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*4+2], dryWet);
 #endif
 				}
 			}
