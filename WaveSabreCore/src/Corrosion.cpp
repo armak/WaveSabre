@@ -14,47 +14,14 @@ namespace WaveSabreCore
 		oversampling = Oversampling::X1;
 		dryWet = 1.0f;
 
-		lastSample[0] = lastSample[1] = 0.0f;
-
-		const float nyquist2 = 22050.0f / 2.0f;
+		const float nyquist2 = (Helpers::CurrentSampleRate * 0.5f) / 2.0f;
 		const float Q2 = 0.0f;
 		lowpassUpsample2[0].Set(nyquist2, Q2);
 		lowpassUpsample2[1].Set(nyquist2, Q2);
 		lowpassDownsample2[0].Set(nyquist2, Q2);
 		lowpassDownsample2[1].Set(nyquist2, Q2);
 
-		const float nyquist4 = 22050.0f / 8.0f;
-		const float Q4 = 0.0f;
-		lowpassUpsample4[0].Set(nyquist4, Q4);
-		lowpassUpsample4[1].Set(nyquist4, Q4);
-		lowpassDownsample4[0].Set(nyquist4, Q4);
-		lowpassDownsample4[1].Set(nyquist4, Q4);
-	}
-
-	void Corrosion::setQs()
-	{
-		/*
-		const float Q = Helpers::Mix(1.0f, 0.5f, Helpers::PowF(saturation, 0.5f));
-		lowpassUpsample2[0].SetQ(Q);
-		lowpassUpsample2[1].SetQ(Q);
-		lowpassUpsample2[0].SetQ(Q);
-		lowpassUpsample2[1].SetQ(Q);
-		lowpassDownsample2[0].SetQ(Q);
-		lowpassDownsample2[1].SetQ(Q);
-		lowpassDownsample2[0].SetQ(Q);
-		lowpassDownsample2[1].SetQ(Q);
-		*/
-
-		const float nyquist = Helpers::Mix(22050.0f, 11025.0f, Helpers::PowF(saturation, 0.5f));
-
-		const float nyquist2 = nyquist / 2.0f;
-		const float Q2 = 0.0f;
-		lowpassUpsample2[0].Set(nyquist2, Q2);
-		lowpassUpsample2[1].Set(nyquist2, Q2);
-		lowpassDownsample2[0].Set(nyquist2, Q2);
-		lowpassDownsample2[1].Set(nyquist2, Q2);
-
-		const float nyquist4 = nyquist / 4.0f;
+		const float nyquist4 = (Helpers::CurrentSampleRate * 0.5f) / 4.0f;
 		const float Q4 = 0.0f;
 		lowpassUpsample4[0].Set(nyquist4, Q4);
 		lowpassUpsample4[1].Set(nyquist4, Q4);
@@ -66,8 +33,6 @@ namespace WaveSabreCore
 	{
 		const float param1 = 10.0f * (twist * twist);
 		const float param2 = 20.0f * saturation;
-
-		//setQs();
 
 		float inputGainScalar = Helpers::DbToScalar(inputGain);
 
@@ -84,15 +49,10 @@ namespace WaveSabreCore
 					{
 						float v = shape(inputWithGain, param1, param2);
 						outputs[i][j] = Helpers::Mix(input, v, dryWet);
-						lastSample[i] = inputWithGain;
 					}
 					break;
 				case Oversampling::X2:
 					{
-						//float inputMid = (lastSample[i] + inputWithGain) * 0.5f;
-						//float vMid = shape(inputMid, param1, param2);
-						//v = (vMid + v) * 0.5f;
-
 						// Insert zeros and lowpass.
 						// Filtered signal requires gain due to the zeros.
 #if 0
@@ -103,8 +63,6 @@ namespace WaveSabreCore
 						buffer[i][j*2+1] = 2.0f*lowpassUpsample2[i].Next(0.0f);
 						
 #endif
-						
-
 						// Oversample waveshaping.
 						buffer[i][j*2]   = shape(buffer[i][j*2], param1, param2);
 						buffer[i][j*2+1] = shape(buffer[i][j*2+1], param1, param2);
@@ -112,26 +70,11 @@ namespace WaveSabreCore
 						// Lowpass result.
 						buffer[i][j*2]   = lowpassDownsample2[i].Next(buffer[i][j*2]);
 						buffer[i][j*2+1] = lowpassDownsample2[i].Next(buffer[i][j*2+1]);
-
-						lastSample[i] = inputWithGain;
 					}
 					break;
 
 				case Oversampling::X4:
 					{
-#ifdef CHEAP_OVERSAMPLING
-						float v = shape(inputWithGain, param1, param2);
-						float inputMid = (lastSample[i] + inputWithGain) * 0.5f;
-						float inputQ1 = (lastSample[i] + inputMid) * 0.5f;
-						float inputQ2 = (inputMid + inputWithGain) * 0.5f;
-						float vQ1 = shape(inputQ1, param1, param2);
-						float vMid = shape(inputMid, param1, param2);
-						float vQ2 = shape(inputQ2, param1, param2);
-						v = (vQ1 + vMid + vQ2 + v) * 0.25f;
-						outputs[i][j] = Helpers::Mix(input, v, dryWet);
-						lastSample[i] = inputWithGain;
-						
-#else
 						// Insert zeros and lowpass.
 						// Filtered signal requires gain due to the zeros.
 #if 0
@@ -160,7 +103,6 @@ namespace WaveSabreCore
 						buffer[i][j*4+1] = lowpassDownsample4[i].Next(buffer[i][j*4+1]);
 						buffer[i][j*4+2] = lowpassDownsample4[i].Next(buffer[i][j*4+2]);
 						buffer[i][j*4+3] = lowpassDownsample4[i].Next(buffer[i][j*4+3]);
-#endif
 					}
 					break;
 				}
@@ -189,12 +131,12 @@ namespace WaveSabreCore
 			{
 				for (int j = 0; j < numSamples; j++)
 				{
-#ifndef AVERAGE
+#ifdef AVERAGE
 					outputs[i][j] = Helpers::Mix(inputs[i][j], (buffer[i][j*4]+buffer[i][j*4+1]+buffer[i][j*4+2]+buffer[i][j*4+3])*0.25f, dryWet);
 #else
 					// Don't know which sample is correct to decimate...
 					// the third sample seems to have the best characteristics.
-					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*4+0], dryWet);
+					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*4+2], dryWet);
 #endif
 				}
 			}
