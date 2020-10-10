@@ -2,7 +2,8 @@
 #define __WAVESABRECORE_CORROSION_H__
 
 #include "Device.h"
-#include "BiquadFilter.h"
+#include "ButterworthFilter.h"
+//#include "BiquadFilter.h"
 
 namespace WaveSabreCore
 {
@@ -47,11 +48,11 @@ namespace WaveSabreCore
 		float buffer[2][65536];
 		float resultBuffer[2][65536];
 		float lastSample[2];
-		BiquadFilter lowpassUpsample2[2];
-		BiquadFilter lowpassDownsample2[2];
 
-		BiquadFilter lowpassUpsample4[2];
-		BiquadFilter lowpassDownsample4[2];
+		ButterworthFilter lowpassUpsample2[2];
+		ButterworthFilter lowpassDownsample2[2];
+		ButterworthFilter lowpassUpsample4[2];
+		ButterworthFilter lowpassDownsample4[2];
 	};
 }
 

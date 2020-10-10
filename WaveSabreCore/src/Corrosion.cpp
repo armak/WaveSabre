@@ -17,30 +17,23 @@ namespace WaveSabreCore
 		lastSample[0] = lastSample[1] = 0.0f;
 
 		const float nyquist2 = 22050.0f / 2.0f;
-		const float Q2 = 0.5f;
-		lowpassUpsample2[0].SetFreq(nyquist2);
-		lowpassUpsample2[0].SetQ(Q2);
-		lowpassUpsample2[1].SetFreq(nyquist2);
-		lowpassUpsample2[1].SetQ(Q2);
-		lowpassDownsample2[0].SetFreq(nyquist2);
-		lowpassDownsample2[0].SetQ(Q2);
-		lowpassDownsample2[1].SetFreq(nyquist2);
-		lowpassDownsample2[1].SetQ(Q2);
+		const float Q2 = 0.0f;
+		lowpassUpsample2[0].Set(nyquist2, Q2);
+		lowpassUpsample2[1].Set(nyquist2, Q2);
+		lowpassDownsample2[0].Set(nyquist2, Q2);
+		lowpassDownsample2[1].Set(nyquist2, Q2);
 
-		const float nyquist4 = 22050.0f / 4.0f;
-		const float Q4 = 0.55f;
-		lowpassUpsample4[0].SetFreq(nyquist4);
-		lowpassUpsample4[0].SetQ(Q4);
-		lowpassUpsample4[1].SetFreq(nyquist4);
-		lowpassUpsample4[1].SetQ(Q4);
-		lowpassDownsample4[0].SetFreq(nyquist4);
-		lowpassDownsample4[0].SetQ(Q4);
-		lowpassDownsample4[1].SetFreq(nyquist4);
-		lowpassDownsample4[1].SetQ(Q4);
+		const float nyquist4 = 22050.0f / 8.0f;
+		const float Q4 = 0.0f;
+		lowpassUpsample4[0].Set(nyquist4, Q4);
+		lowpassUpsample4[1].Set(nyquist4, Q4);
+		lowpassDownsample4[0].Set(nyquist4, Q4);
+		lowpassDownsample4[1].Set(nyquist4, Q4);
 	}
 
 	void Corrosion::setQs()
 	{
+		/*
 		const float Q = Helpers::Mix(1.0f, 0.5f, Helpers::PowF(saturation, 0.5f));
 		lowpassUpsample2[0].SetQ(Q);
 		lowpassUpsample2[1].SetQ(Q);
@@ -50,6 +43,23 @@ namespace WaveSabreCore
 		lowpassDownsample2[1].SetQ(Q);
 		lowpassDownsample2[0].SetQ(Q);
 		lowpassDownsample2[1].SetQ(Q);
+		*/
+
+		const float nyquist = Helpers::Mix(22050.0f, 11025.0f, Helpers::PowF(saturation, 0.5f));
+
+		const float nyquist2 = nyquist / 2.0f;
+		const float Q2 = 0.0f;
+		lowpassUpsample2[0].Set(nyquist2, Q2);
+		lowpassUpsample2[1].Set(nyquist2, Q2);
+		lowpassDownsample2[0].Set(nyquist2, Q2);
+		lowpassDownsample2[1].Set(nyquist2, Q2);
+
+		const float nyquist4 = nyquist / 4.0f;
+		const float Q4 = 0.0f;
+		lowpassUpsample4[0].Set(nyquist4, Q4);
+		lowpassUpsample4[1].Set(nyquist4, Q4);
+		lowpassDownsample4[0].Set(nyquist4, Q4);
+		lowpassDownsample4[1].Set(nyquist4, Q4);
 	}
 
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
@@ -57,7 +67,7 @@ namespace WaveSabreCore
 		const float param1 = 10.0f * (twist * twist);
 		const float param2 = 20.0f * saturation;
 
-		setQs();
+		//setQs();
 
 		float inputGainScalar = Helpers::DbToScalar(inputGain);
 
@@ -85,7 +95,7 @@ namespace WaveSabreCore
 
 						// Insert zeros and lowpass.
 						// Filtered signal requires gain due to the zeros.
-#if 1
+#if 0
 						buffer[i][j*2]   = lowpassUpsample2[i].Next((lastSample[i]+inputWithGain)*0.5f);
 						buffer[i][j*2+1] = lowpassUpsample2[i].Next(inputWithGain);
 #else
@@ -179,12 +189,12 @@ namespace WaveSabreCore
 			{
 				for (int j = 0; j < numSamples; j++)
 				{
-#ifdef AVERAGE
-					outputs[i][j] = Helpers::Mix(input, (buffer[i][j*4]+buffer[i][j*4+1]+buffer[i][j*4+2]+buffer[i][j*4+3])*0.25f, dryWet);
+#ifndef AVERAGE
+					outputs[i][j] = Helpers::Mix(inputs[i][j], (buffer[i][j*4]+buffer[i][j*4+1]+buffer[i][j*4+2]+buffer[i][j*4+3])*0.25f, dryWet);
 #else
 					// Don't know which sample is correct to decimate...
 					// the third sample seems to have the best characteristics.
-					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*4+2], dryWet);
+					outputs[i][j] = Helpers::Mix(inputs[i][j], buffer[i][j*4+0], dryWet);
 #endif
 				}
 			}
@@ -195,7 +205,9 @@ namespace WaveSabreCore
 	float Corrosion::shape(float input, float p1, float p2)
 	{
 		// Apply sine function wave shaping.
-		const float twist = Helpers::Mix(input, Helpers::FastSin(input * Helpers::Mix(1.0f, 2.0f * 3.141592f, p1)), Helpers::Clamp(0.0f, 1.0f, input));
+		const float twist = Helpers::Mix(input,
+										 Helpers::FastSin(static_cast<float>(input * Helpers::Mix(1.0f, 2.0f * 3.141592f, p1))),
+										 Helpers::Clamp(0.0f, 1.0f, p1));
 		
 		// Apply tanh function wave shaping.
 		const float e = 2.71828f;
