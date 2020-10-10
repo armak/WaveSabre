@@ -30,7 +30,6 @@ namespace WaveSabreCore
 
 	private:
 		float shape(float input, float p1, float p2);
-		void setQs();
 
 		enum class Oversampling
 		{
@@ -45,9 +44,7 @@ namespace WaveSabreCore
 		Oversampling oversampling;
 		float dryWet;
 
-		float buffer[2][65536];
-		float resultBuffer[2][65536];
-		float lastSample[2];
+		float buffer[2][65536] = {};
 
 		ButterworthFilter lowpassUpsample2[2];
 		ButterworthFilter lowpassDownsample2[2];
