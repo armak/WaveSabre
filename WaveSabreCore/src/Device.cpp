@@ -63,6 +63,11 @@ namespace WaveSabreCore
 		return chunkSize;
 	}
 
+	int Device::GetProcessingDelay() const
+	{
+		return 0;
+	}
+
 	void Device::clearOutputs(float **outputs, int numSamples)
 	{
 		for (int i = 0; i < 2; i++)

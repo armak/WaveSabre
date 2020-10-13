@@ -274,4 +274,19 @@ namespace WaveSabreCore
 		case ParamIndices::DryWet: return dryWet;
 		}
 	}
+
+	int Corrosion::GetProcessingDelay() const
+	{
+		switch(oversampling)
+		{
+			case Oversampling::X1:
+				return 0;
+			case Oversampling::X2:
+				return Taps2>>1;
+			case Oversampling::X4:
+				return Taps4>>1;
+			default:
+				return 0;
+		}
+	}
 }

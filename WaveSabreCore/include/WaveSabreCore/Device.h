@@ -24,6 +24,8 @@ namespace WaveSabreCore
 		virtual void SetChunk(void *data, int size);
 		virtual int GetChunk(void **data);
 
+		virtual int GetProcessingDelay() const;
+
 	protected:
 		virtual void clearOutputs(float **outputs, int numSamples);
 
