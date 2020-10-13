@@ -34,6 +34,8 @@ namespace WaveSabreVstLib
 	{
 		if (device)
 		{
+			setInitialDelay(device->GetProcessingDelay());
+
 			VstTimeInfo *ti = getTimeInfo(0);
 			if (ti)
 			{

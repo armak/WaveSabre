@@ -25,6 +25,7 @@ namespace WaveSabreCore
 
 		virtual void SetParam(int index, float value);
 		virtual float GetParam(int index) const;
+		virtual int GetProcessingDelay() const override;
 
 	private:
 		float shape(float input, float p1, float p2);
