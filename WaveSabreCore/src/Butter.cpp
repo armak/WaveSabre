@@ -8,7 +8,7 @@ namespace WaveSabreCore
 	Butter::Butter()
 		: Device((int)ParamIndices::NumParams)
 	{
-		cutoff = Helpers::CurrentSampleRate * 0.5f;
+		cutoff = 20000.0f;
 		q = 0.0f;
 	}
 
