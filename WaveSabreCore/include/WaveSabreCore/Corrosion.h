@@ -2,8 +2,6 @@
 #define __WAVESABRECORE_CORROSION_H__
 
 #include "Device.h"
-#include "ButterworthFilter.h"
-//#include "BiquadFilter.h"
 
 namespace WaveSabreCore
 {
@@ -30,6 +28,7 @@ namespace WaveSabreCore
 
 	private:
 		float shape(float input, float p1, float p2);
+		void createSincImpulse(float* result, const int taps, const double cutoff);
 
 		enum class Oversampling
 		{
@@ -44,12 +43,21 @@ namespace WaveSabreCore
 		Oversampling oversampling;
 		float dryWet;
 
-		float buffer[2][65536] = {};
+		float pastBuffer[2][65536] = {};
+		float currentBuffer[2][65536] = {};
+		float futureBuffer[2][65536] = {};
+		int pastBufferLength = -1;
+		int currentBufferLength = -1;
+		int futureBufferLength = -1;
 
-		ButterworthFilter lowpassUpsample2[2];
-		ButterworthFilter lowpassDownsample2[2];
-		ButterworthFilter lowpassUpsample4[2];
-		ButterworthFilter lowpassDownsample4[2];
+		float oversamplingBuffer[2][65536] = {};
+		float waveshapingBuffer[2][65536] = {};
+		float bandlimitingBuffer[2][65536] = {};
+
+		static const int Taps2 = 64;
+		float firResponse2[Taps2];
+		static const int Taps4 = 128;
+		float firResponse4[Taps4];
 	};
 }
 
