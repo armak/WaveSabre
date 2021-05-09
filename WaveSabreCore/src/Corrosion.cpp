@@ -26,13 +26,16 @@ namespace WaveSabreCore
 		const double M = static_cast<double>(taps) - 1.0;
 
 		// Generate sinc impulse with a window.
-		for (int i = 0; i < taps; ++i) {
+		for(int i = 0; i < taps; ++i)
+		{
 			const double d = static_cast<double>(i);
 			double impulse = 0.0;
-			if (d == M*0.5) {
+			if(d == M*0.5)
+			{
 				impulse = 2.0*cutoff;
 			}
-			else {
+			else
+			{
 				double n = d - M*0.5;
 				impulse = Helpers::FastSin(2.0*Pi*cutoff*n) / (Pi*n);
 			}
