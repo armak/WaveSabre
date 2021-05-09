@@ -82,6 +82,10 @@ namespace WaveSabreCore
 			const int HalfTaps = Taps2>>1;
 			for(int i = 0; i < 2; ++i)
 			{
+				for(int j = 0; j < HalfTaps; ++j)
+				{
+					dryBuffer[i][j] = previousBuffer[i][j + HalfTaps];
+				}
 				for(int j = 0; j < Taps2; ++j)
 				{
 					oversamplingBuffer[i][j*2]   = previousBuffer[i][j];
@@ -89,6 +93,8 @@ namespace WaveSabreCore
 				}
 				for(int j = 0; j < numSamples; ++j)
 				{
+					dryBuffer[i][HalfTaps + j] = inputs[i][j];
+
 					oversamplingBuffer[i][(Taps2 + j)*2]   = inputs[i][j];
 					oversamplingBuffer[i][(Taps2 + j)*2+1] = 0.0f;
 				}
@@ -107,7 +113,7 @@ namespace WaveSabreCore
 					waveshapingBuffer[i][j + HalfTaps] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
 				}
 
-				// Band limit to original nyquist
+				// Band limit to original nyquist.
 				for(int j = 0; j < numSamples*2; ++j)
 				{
 					float bandlimitedSample = 0.0f;
@@ -124,9 +130,7 @@ namespace WaveSabreCore
 				// Decimate the bandlimited signal for output.
 				for(int j = 0; j  < numSamples; ++j)
 				{
-					// TODO: Fix dry mixing.
-					//outputs[i][j] = Helpers::Mix(currentBuffer[i][j], bandlimitingBuffer[i][j*2], dryWet);
-					outputs[i][j] = bandlimitingBuffer[i][j*2];
+					outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*2], dryWet);
 				}
 
 				for(int j = 0; j < Taps2; ++j)
@@ -140,6 +144,10 @@ namespace WaveSabreCore
 			const int HalfTaps = Taps4>>1;
 			for(int i = 0; i < 2; ++i)
 			{
+				for(int j = 0; j < HalfTaps; ++j)
+				{
+					dryBuffer[i][j] = previousBuffer[i][j + HalfTaps];
+				}
 				for(int j = 0; j < Taps4; ++j)
 				{
 					oversamplingBuffer[i][j*4]   = previousBuffer[i][j];
@@ -149,6 +157,8 @@ namespace WaveSabreCore
 				}
 				for(int j = 0; j < numSamples; ++j)
 				{
+					dryBuffer[i][HalfTaps + j] = inputs[i][j];
+
 					oversamplingBuffer[i][(Taps4 + j)*4]   = inputs[i][j];
 					oversamplingBuffer[i][(Taps4 + j)*4+1] = 0.0f;
 					oversamplingBuffer[i][(Taps4 + j)*4+2] = 0.0f;
@@ -168,8 +178,8 @@ namespace WaveSabreCore
 
 					waveshapingBuffer[i][j + HalfTaps] = shape(4.0f*inputGainScalar*filteredSample, param1, param2);
 				}
-
-				// Band limit to original nyquist
+				
+				// Band limit to original nyquist.
 				for(int j = 0; j < numSamples*4; ++j)
 				{
 					float bandlimitedSample = 0.0f;
@@ -182,13 +192,11 @@ namespace WaveSabreCore
 
 					bandlimitingBuffer[i][j] = bandlimitedSample;
 				}
-
+				
 				// Decimate the bandlimited signal for output.
 				for(int j = 0; j  < numSamples; ++j)
 				{
-					// TODO: Fix dry mixing.
-					//outputs[i][j] = Helpers::Mix(currentBuffer[i][j], bandlimitingBuffer[i][j*2], dryWet);
-					outputs[i][j] = bandlimitingBuffer[i][j*4];
+					outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*4], dryWet);
 				}
 
 				for(int j = 0; j < Taps4; ++j)
@@ -198,204 +206,6 @@ namespace WaveSabreCore
 			}
 		}
 	}
-
-	/*
-	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
-	{
-		for(int i = 0; i < 2; ++i)
-		{
-			for(int j = 0; j < currentBufferLength; ++j)
-				pastBuffer[i][j] = currentBuffer[i][j];
-			for(int j = 0; j < futureBufferLength; ++j)
-				currentBuffer[i][j] = futureBuffer[i][j];
-			for(int j = 0; j < numSamples; ++j)
-				futureBuffer[i][j] = inputs[i][j];
-		}
-
-		pastBufferLength = currentBufferLength;
-		currentBufferLength = futureBufferLength;
-		futureBufferLength = numSamples;
-
-		if(pastBufferLength < Taps2>>1) return;
-		
-		float inputGainScalar = Helpers::DbToScalar(inputGain);
-		const float param1 = 10.0f * (twist * twist);
-		const float param2 = 20.0f * saturation;
-
-		if(oversampling == Oversampling::X1)
-		{
-			for(int i = 0; i < 2; ++i)
-			{
-				for(int j = 0; j < currentBufferLength; ++j)
-				{
-					const float input = currentBuffer[i][j];
-					const float inputWithGain = input * inputGainScalar;
-					float v = shape(inputWithGain, param1, param2);
-					outputs[i][j] = Helpers::Mix(input, v, dryWet);
-				}
-			}
-		}
-		else if(oversampling == Oversampling::X2)
-		{
-#define DELAY_BUFFER 0
-
-#if DELAY_BUFFER
-			// Start making an oversampling buffer by taking the previous samples and inserting zeros.
-			// TODO: min(Taps2, numSamples)
-
-			const int HalfTaps = Taps2>>1;
-
-			for(int i = 0; i < 2; ++i)
-			{
-				for(int j = 0; j < Taps2; ++j)
-				{
-					buffer[i][j*2]   = pastBuffer2[i][j];
-					buffer[i][j*2+1] = 0.0f;
-				}
-
-				// Add the current samples to the oversampling buffer.
-				for(int j = 0; j < numSamples; ++j)
-				{
-					buffer[i][Taps2 + j*2]   = inputs[i][j];
-					buffer[i][Taps2 + j*2+1] = 0.0f;
-				}
-
-				// Filter above original nyquist and waveshape.
-				for(int j = -HalfTaps; j < currentBufferLength*2 + HalfTaps; ++j)
-				{
-					float filteredSample = 0.0f;
-					for(int k = 0; k < Taps2; ++k)
-					{
-						int cs = j + (k - HalfTaps);
-						float sample = oversamplingBuffer[i][currentBufferLength*2+cs];
-						filteredSample += sample * firResponse2[k];
-					}
-
-					waveshapingBuffer[i][j+HalfTaps] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
-				}
-			}
-#else
-			const int HalfTaps = Taps2>>1;
-			for(int i = 0; i < 2; ++i)
-			{
-				// Make a buffer for oversampling, insert zeros between samples.
-				for(int j = 0; j < pastBufferLength; ++j)
-				{
-					oversamplingBuffer[i][j*2]   = pastBuffer[i][j];
-					oversamplingBuffer[i][j*2+1] = 0.0f;
-				}
-				for(int j = 0; j < currentBufferLength; ++j)
-				{
-					oversamplingBuffer[i][(pastBufferLength + j)*2]   = currentBuffer[i][j];
-					oversamplingBuffer[i][(pastBufferLength + j)*2+1] = 0.0f;
-				}
-				for(int j = 0; j < futureBufferLength; ++j)
-				{
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*2]   = futureBuffer[i][j];
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*2+1] = 0.0f;
-				}
-				
-				// Filter above original nyquist and waveshape.
-				for(int j = -HalfTaps; j < currentBufferLength*2 + HalfTaps; ++j)
-				{
-					float filteredSample = 0.0f;
-					for(int k = 0; k < Taps2; ++k)
-					{
-						int cs = j + (k - HalfTaps);
-						float sample = oversamplingBuffer[i][currentBufferLength*2+cs];
-						filteredSample += sample * firResponse2[k];
-					}
-
-					waveshapingBuffer[i][j+HalfTaps] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
-				}
-
-				// Band limit to original nyquist
-				for(int j = 0; j < currentBufferLength*2; ++j)
-				{
-					float bandlimitedSample = 0.0f;
-					for(int k = 0; k < Taps2; ++k)
-					{
-						int cs = j + (k - HalfTaps);
-						float sample = waveshapingBuffer[i][HalfTaps+cs];
-						bandlimitedSample += sample * firResponse2[k];
-					}
-
-					bandlimitingBuffer[i][j] = bandlimitedSample;
-				}
-
-				// Decimate and hope for the best??
-				for(int j = 0; j  < numSamples; ++j)
-				{
-					outputs[i][j] = Helpers::Mix(currentBuffer[i][j], bandlimitingBuffer[i][j*2], dryWet);
-				}
-			}
-#endif
-		}
-		else if(oversampling == Oversampling::X4)
-		{
-			const int HalfTaps = Taps4>>1;
-			for(int i = 0; i < 2; ++i)
-			{
-				// Make a buffer for oversampling, insert zeros between samples.
-				for(int j = 0; j < pastBufferLength; ++j)
-				{
-					oversamplingBuffer[i][j*4]   = pastBuffer[i][j];
-					oversamplingBuffer[i][j*4+1] = 0.0f;
-					oversamplingBuffer[i][j*4+2] = 0.0f;
-					oversamplingBuffer[i][j*4+3] = 0.0f;
-				}
-				for(int j = 0; j < currentBufferLength; ++j)
-				{
-					oversamplingBuffer[i][(pastBufferLength + j)*4]   = currentBuffer[i][j];
-					oversamplingBuffer[i][(pastBufferLength + j)*4+1] = 0.0f;
-					oversamplingBuffer[i][(pastBufferLength + j)*4+2] = 0.0f;
-					oversamplingBuffer[i][(pastBufferLength + j)*4+3] = 0.0f;
-				}
-				for(int j = 0; j < futureBufferLength; ++j)
-				{
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*4]   = futureBuffer[i][j];
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*4+1] = 0.0f;
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*4+2] = 0.0f;
-					oversamplingBuffer[i][(pastBufferLength+currentBufferLength+j)*4+3] = 0.0f;
-				}
-				
-				// Filter above original nyquist and waveshape.
-				for(int j = -HalfTaps; j < currentBufferLength*4 + HalfTaps; ++j)
-				{
-					float filteredSample = 0.0f;
-					for(int k = 0; k < Taps4; ++k)
-					{
-						int cs = j + (k - HalfTaps);
-						float sample = oversamplingBuffer[i][currentBufferLength*4+cs];
-						filteredSample += sample * firResponse4[k];
-					}
-
-					waveshapingBuffer[i][j+HalfTaps] = shape(4.0f*inputGainScalar*filteredSample, param1, param2);
-				}
-
-				// Band limit to original nyquist
-				for(int j = 0; j < currentBufferLength*4; ++j)
-				{
-					float bandlimitedSample = 0.0f;
-					for(int k = 0; k < Taps4; ++k)
-					{
-						int cs = j + (k - HalfTaps);
-						float sample = waveshapingBuffer[i][HalfTaps+cs];
-						bandlimitedSample += sample * firResponse4[k];
-					}
-
-					bandlimitingBuffer[i][j] = bandlimitedSample;
-				}
-
-				// Decimate and hope for the best??
-				for(int j = 0; j  < numSamples; ++j)
-				{
-					outputs[i][j] = Helpers::Mix(currentBuffer[i][j], bandlimitingBuffer[i][j*4+3], dryWet);
-				}
-			}
-		}
-	}
-	*/
 
 	float Corrosion::shape(float input, float p1, float p2)
 	{

@@ -45,6 +45,7 @@ namespace WaveSabreCore
 		float dryWet;
 
 		float previousBuffer[2][65536] = {};
+		float dryBuffer[2][65536] = {};
 		float oversamplingBuffer[2][65536] = {};
 		float waveshapingBuffer[2][65536] = {};
 		float bandlimitingBuffer[2][65536] = {};
