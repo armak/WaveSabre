@@ -11,7 +11,9 @@ namespace WaveSabreCore
 		enum class ParamIndices
 		{
 			InputGain,
+			Even,
 			Twist,
+			Fold,
 			Saturation,
 			Oversampling,
 			DryWet,
@@ -28,7 +30,7 @@ namespace WaveSabreCore
 		virtual int GetProcessingDelay() const override;
 
 	private:
-		float shape(float input, float p1, float p2);
+		float shape(float input, float p1, float p2, float p3, float p4);
 		void createSincImpulse(float* result, const int taps, const double cutoff);
 
 		enum class Oversampling
@@ -39,7 +41,9 @@ namespace WaveSabreCore
 		};
 
 		float inputGain;
+		float even;
 		float twist;
+		float fold;
 		float saturation;
 		Oversampling oversampling;
 		float dryWet;
@@ -50,8 +54,8 @@ namespace WaveSabreCore
 		float waveshapingBuffer[2][65536] = {};
 		float bandlimitingBuffer[2][65536] = {};
 		
-		static const int Taps2 = 64;
-		static const int Taps4 = 128;
+		static const int Taps2 = 40;
+		static const int Taps4 = 80;
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
 	};
