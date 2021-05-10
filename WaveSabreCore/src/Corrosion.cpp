@@ -11,7 +11,9 @@ namespace WaveSabreCore
 	Corrosion::Corrosion() :
 		Device((int)ParamIndices::NumParams),
 		inputGain(0.0f),
+		even(0.0f),
 		twist(0.0f),
+		fold(0.0f),
 		saturation(0.0f),
 		oversampling(Oversampling::X1),
 		dryWet(1.0f)
@@ -55,8 +57,10 @@ namespace WaveSabreCore
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
 		float inputGainScalar = Helpers::DbToScalar(inputGain);
-		const float param1 = 10.0f * (twist * twist);
-		const float param2 = 20.0f * saturation;
+		const float param1 =   4.0f * (even * even);
+		const float param2 =  10.0f * (twist * twist);
+		const float param3 = 100.0f * (fold * fold);
+		const float param4 =  20.0f * saturation;
 
 		if(oversampling == Oversampling::X1)
 		{
@@ -66,7 +70,7 @@ namespace WaveSabreCore
 				{
 					const float input = inputs[i][j];
 					const float inputWithGain = input * inputGainScalar;
-					float v = shape(inputWithGain, param1, param2);
+					float v = shape(inputWithGain, param1, param2, param3, param4);
 					outputs[i][j] = Helpers::Mix(input, v, dryWet);
 				}
 			}
@@ -109,7 +113,7 @@ namespace WaveSabreCore
 						filteredSample += sample * firResponse2[k];
 					}
 
-					waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
+					waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2, param3, param4);
 				}
 
 				// Band limit to original nyquist.
@@ -173,7 +177,7 @@ namespace WaveSabreCore
 						filteredSample += sample * firResponse4[k];
 					}
 
-					waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2);
+					waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2, param3, param4);
 				}
 				
 				// Band limit to original nyquist.
@@ -203,18 +207,42 @@ namespace WaveSabreCore
 		}
 	}
 
-	float Corrosion::shape(float input, float p1, float p2)
+	float Corrosion::shape(float input, float p1, float p2, float p3, float p4)
 	{
-		// Apply sine function wave shaping.
-		const float twist = Helpers::Mix(input,
-										 static_cast<float>(Helpers::FastSin(input * Helpers::Mix(1.0f, 2.0f * 3.141592f, p1))),
-										 Helpers::Clamp(0.0f, 1.0f, p1));
+		// Apply even harmonics to the signal.
+		float even = input;
+		if(p1 > 0.0f)
+			even = Helpers::Mix(input,
+                                static_cast<float>(Helpers::FastCos(input * Helpers::Mix(1.0f, 2.0f * 3.141592f, p1))),
+                                Helpers::Clamp(p1, 0.0f, 1.0f)*0.5f);
+
+		// Apply sine function fold wave shaping.
+		float twist = even;
+		if(p2 > 0.0f)
+			twist = Helpers::Mix(even,
+                                 static_cast<float>(Helpers::FastSin(even * Helpers::Mix(1.0f, 2.0f * 3.141592f, p2))),
+                                 Helpers::Clamp(p2, 0.0f, 1.0f));
 		
-		// Apply tanh function wave shaping.
-		const float e = 2.71828f;
-		const float exp = Helpers::PowF(e, 2.0f * twist * (1.0f + p2));
-		const float tanh = (exp - 1.0f) / (exp + 1.0f);
-		return Helpers::Mix(twist, tanh, Helpers::Clamp(p2, 0.0f, 1.0f));
+		// Apply foldback distortion.
+		float fold = twist;
+		if(p3 > 0.0f)
+		{
+			fold *= (1.0f + p3);
+			if(fold > 1.0f || fold < -1.0f)
+				fold = fabs(fabs(fmod(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
+		}
+
+		// Apply odd harmonics saturation using tanh function.
+		float tanh = fold;
+		if(p4 > 0.0f)
+		{
+			const float e = 2.71828f;
+			const float exp = Helpers::PowF(e, 2.0f * tanh * (1.0f + p4));
+			tanh = (exp - 1.0f) / (exp + 1.0f);
+			tanh = Helpers::Mix(fold, tanh, Helpers::Clamp(p4, 0.0f, 1.0f));
+		}
+
+		return tanh;
 	}
 
 	void Corrosion::SetParam(int index, float value)
@@ -222,7 +250,9 @@ namespace WaveSabreCore
 		switch ((ParamIndices)index)
 		{
 		case ParamIndices::InputGain: inputGain = Helpers::ParamToDb(value, 12.0f); break;
+		case ParamIndices::Even: even = value; break;
 		case ParamIndices::Twist: twist = value; break;
+		case ParamIndices::Fold: fold = value; break;
 		case ParamIndices::Saturation: saturation = value; break;
 		case ParamIndices::Oversampling: oversampling = (Oversampling)(int)(value * 2.0f); break;
 		case ParamIndices::DryWet: dryWet = value; break;
@@ -239,6 +269,8 @@ namespace WaveSabreCore
 
 		case ParamIndices::InputGain: return Helpers::DbToParam(inputGain, 12.0f);
 		case ParamIndices::Saturation: return saturation;
+		case ParamIndices::Fold: return fold;
+		case ParamIndices::Even: return even;
 		case ParamIndices::Oversampling: return (float)oversampling / 2.0f;
 		case ParamIndices::DryWet: return dryWet;
 		}
