@@ -100,17 +100,16 @@ namespace WaveSabreCore
 				}
 
 				// Filter above original nyquist and waveshape.
-				for(int j = -HalfTaps; j < numSamples*2 + HalfTaps; ++j)
+				for(int j = 0; j < numSamples*2 + Taps2; ++j)
 				{
 					float filteredSample = 0.0f;
 					for(int k = 0; k < Taps2; ++k)
 					{
-						int cs = j + (k - HalfTaps);
-						float sample = oversamplingBuffer[i][Taps2 + cs];
+						float sample = oversamplingBuffer[i][j + k];
 						filteredSample += sample * firResponse2[k];
 					}
 
-					waveshapingBuffer[i][j + HalfTaps] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
+					waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2);
 				}
 
 				// Band limit to original nyquist.
@@ -119,8 +118,7 @@ namespace WaveSabreCore
 					float bandlimitedSample = 0.0f;
 					for(int k = 0; k < Taps2; ++k)
 					{
-						int cs = j + (k - HalfTaps);
-						float sample = waveshapingBuffer[i][HalfTaps + cs];
+						float sample = waveshapingBuffer[i][j + k];
 						bandlimitedSample += sample * firResponse2[k];
 					}
 
@@ -166,27 +164,25 @@ namespace WaveSabreCore
 				}
 
 				// Filter above original nyquist and waveshape.
-				for(int j = -HalfTaps; j < numSamples*4 + HalfTaps; ++j)
+				for(int j = 0; j < numSamples*4 + Taps4*2; ++j)
 				{
 					float filteredSample = 0.0f;
 					for(int k = 0; k < Taps4; ++k)
 					{
-						int cs = j + (k - HalfTaps);
-						float sample = oversamplingBuffer[i][Taps4 + cs];
+						float sample = oversamplingBuffer[i][j + k];
 						filteredSample += sample * firResponse4[k];
 					}
 
-					waveshapingBuffer[i][j + HalfTaps] = shape(4.0f*inputGainScalar*filteredSample, param1, param2);
+					waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2);
 				}
 				
 				// Band limit to original nyquist.
-				for(int j = 0; j < numSamples*4; ++j)
+				for(int j = 0; j < numSamples*4 + Taps4; ++j)
 				{
 					float bandlimitedSample = 0.0f;
 					for(int k = 0; k < Taps4; ++k)
 					{
-						int cs = j + (k - HalfTaps);
-						float sample = waveshapingBuffer[i][HalfTaps + cs];
+						float sample = waveshapingBuffer[i][j + k];
 						bandlimitedSample += sample * firResponse4[k];
 					}
 
@@ -196,7 +192,7 @@ namespace WaveSabreCore
 				// Decimate the bandlimited signal for output.
 				for(int j = 0; j  < numSamples; ++j)
 				{
-					outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*4], dryWet);
+					outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*4 + Taps4], dryWet);
 				}
 
 				for(int j = 0; j < Taps4; ++j)
@@ -257,9 +253,7 @@ namespace WaveSabreCore
 			case Oversampling::X2:
 				return Taps2>>1;
 			case Oversampling::X4:
-				// TODO: For some reason 4x oversampling causes an "extra" 32 samples of delay.
-				// Probably an oversight somewhere, should look into that.
-				return 32 + (Taps4>>1);
+				return Taps4>>1;
 			default:
 				return 0;
 		}
