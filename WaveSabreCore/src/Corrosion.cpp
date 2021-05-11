@@ -242,10 +242,21 @@ namespace WaveSabreCore
 		float tanh = fold;
 		if(p4 > 0.0f)
 		{
-			const float e = 2.71828f;
-			const float exp = Helpers::PowF(e, 2.0f * tanh * (1.0f + p4));
-			tanh = (exp - 1.0f) / (exp + 1.0f);
-			tanh = Helpers::Mix(fold, tanh, Helpers::Clamp(p4, 0.0f, 1.0f));
+			const float exponent = 2.0f * tanh * (1.0f + p4);
+
+			// Round to one in order to avoid floating point issues in the exponentiation
+			// and further calculations below.
+			if(exponent >= 16.0f)
+			{
+				tanh = 1.0f;
+			}
+			else
+			{
+				const float e = 2.71828f;
+				const float exp = Helpers::PowF(e, exponent);
+				tanh = (exp - 1.0f) / (exp + 1.0f);
+				tanh = Helpers::Mix(fold, tanh, Helpers::Clamp(p4, 0.0f, 1.0f));
+			}
 		}
 
 		return tanh;
