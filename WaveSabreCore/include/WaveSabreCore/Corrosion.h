@@ -15,8 +15,10 @@ namespace WaveSabreCore
 			Twist,
 			Fold,
 			Saturation,
-			Oversampling,
+			OutputGain,
 			DryWet,
+			Oversampling,
+			DCBlocking,
 
 			NumParams,
 		};
@@ -40,13 +42,24 @@ namespace WaveSabreCore
 			X4,
 		};
 
+		enum class DCBlock
+		{
+			Off,
+			On,
+		};
+
+		static const double Pi;
+		static const float TwoPi;
+
 		float inputGain;
 		float even;
 		float twist;
 		float fold;
 		float saturation;
-		Oversampling oversampling;
+		float outputGain;
 		float dryWet;
+		Oversampling oversampling;
+		DCBlock dcBlocking;
 
 		float previousBuffer[2][65536] = {};
 		float dryBuffer[2][65536] = {};
@@ -54,10 +67,13 @@ namespace WaveSabreCore
 		float waveshapingBuffer[2][65536] = {};
 		float bandlimitingBuffer[2][65536] = {};
 		
-		static const int Taps2 = 40;
-		static const int Taps4 = 80;
+		static const int Taps2 = 64;
+		static const int Taps4 = 128;
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
+
+		float previousSampleDC[2]   = {};
+		float previousSampleNoDC[2] = {};
 	};
 }
 

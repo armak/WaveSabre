@@ -6,8 +6,13 @@
 #include <cmath>
 #endif
 
+#include <string.h>
+
 namespace WaveSabreCore
 {
+	const double Corrosion::Pi = 3.141592653589793;
+	const float Corrosion::TwoPi = 2.0f * static_cast<float>(Pi);
+
 	Corrosion::Corrosion() :
 		Device((int)ParamIndices::NumParams),
 		inputGain(0.0f),
@@ -15,8 +20,10 @@ namespace WaveSabreCore
 		twist(0.0f),
 		fold(0.0f),
 		saturation(0.0f),
+		outputGain(0.0f),
+		dryWet(1.0f),
 		oversampling(Oversampling::X1),
-		dryWet(1.0f)
+		dcBlocking(DCBlock::Off)
 	{
 		createSincImpulse(firResponse2, Taps2, 0.243);
 		createSincImpulse(firResponse4, Taps4, 0.243*0.5);
@@ -24,7 +31,6 @@ namespace WaveSabreCore
 
 	void Corrosion::createSincImpulse(float* result, const int taps, const double cutoff)
 	{
-		const double Pi = 3.141592653589793;
 		const double M = static_cast<double>(taps) - 1.0;
 
 		// Generate sinc impulse with a window.
@@ -56,7 +62,13 @@ namespace WaveSabreCore
 
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
-		float inputGainScalar = Helpers::DbToScalar(inputGain);
+		// Note: multiply sample rate with oversampling factor if the behavior ever changes
+		// so that the DC filtering is done as part of the waveshaping function, i.e.:
+		// float(1 + int(oversampling)*int(oversampling))
+		const float R_dc = 1.0f - (TwoPi * 10.0f) / (float(Helpers::CurrentSampleRate));
+
+		float inputGainScalar  = Helpers::DbToScalar(inputGain);
+		float outputGainScalar = Helpers::DbToScalar(outputGain);
 		const float param1 =   4.0f * (even * even);
 		const float param2 =  10.0f * (twist * twist);
 		const float param3 = 100.0f * (fold * fold);
@@ -76,7 +88,17 @@ namespace WaveSabreCore
 						const float input = inputs[i][j];
 						const float inputWithGain = input * inputGainScalar;
 						float v = shape(inputWithGain, param1, param2, param3, param4);
-						outputs[i][j] = Helpers::Mix(input, v, dryWet);
+
+						// DC offset removal.
+						if(dcBlocking == DCBlock::On)
+						{
+							const float newPreviousDC = v;
+							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
+							previousSampleDC[i] = newPreviousDC;
+							previousSampleNoDC[i] = v;
+						}
+
+						outputs[i][j] = Helpers::Mix(input, v*outputGainScalar, dryWet);
 					}
 				}
 
@@ -86,12 +108,17 @@ namespace WaveSabreCore
 			case Oversampling::X2:
 			{
 				const int HalfTaps = Taps2>>1;
+				const int PreviousCopyBytes = HalfTaps * sizeof(float);
+				const int CurrentCopyBytes = numSamples * sizeof(float);
+
 				for(int i = 0; i < 2; ++i)
 				{
-					for(int j = 0; j < HalfTaps; ++j)
-					{
-						dryBuffer[i][j] = previousBuffer[i][j + HalfTaps];
-					}
+					// Fill scratch buffer for unprocessed signal.
+					// We can't just use the input signal directly, because oversampling causes a delay
+					// for the processed signal, so we need to delay the dry as well.
+					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
+					memcpy(dryBuffer[i] + HalfTaps, inputs[i], CurrentCopyBytes);
+
 					for(int j = 0; j < Taps2; ++j)
 					{
 						oversamplingBuffer[i][j*2]   = previousBuffer[i][j];
@@ -99,10 +126,9 @@ namespace WaveSabreCore
 					}
 					for(int j = 0; j < numSamples; ++j)
 					{
-						dryBuffer[i][HalfTaps + j] = inputs[i][j];
-
-						oversamplingBuffer[i][(Taps2 + j)*2]   = inputs[i][j];
-						oversamplingBuffer[i][(Taps2 + j)*2+1] = 0.0f;
+						const int offset = Taps2 + j;
+						oversamplingBuffer[i][offset*2]   = inputs[i][j];
+						oversamplingBuffer[i][offset*2+1] = 0.0f;
 					}
 
 					// Filter above original nyquist and waveshape.
@@ -134,9 +160,21 @@ namespace WaveSabreCore
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < numSamples; ++j)
 					{
-						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*2], dryWet);
+						float v = bandlimitingBuffer[i][j*2];
+
+						// DC offset removal.
+						if(dcBlocking == DCBlock::On)
+						{
+							const float newPreviousDC = v;
+							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
+							previousSampleDC[i] = newPreviousDC;
+							previousSampleNoDC[i] = v;
+						}
+
+						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], v*outputGainScalar, dryWet);
 					}
 
+					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps2; ++j)
 					{
 						previousBuffer[i][j] = inputs[i][numSamples - Taps2 + j];
@@ -149,12 +187,18 @@ namespace WaveSabreCore
 			case Oversampling::X4:
 			{
 				const int HalfTaps = Taps4>>1;
+				const int PreviousCopyBytes = HalfTaps * sizeof(float);
+				const int CurrentCopyBytes = numSamples * sizeof(float);
+
 				for(int i = 0; i < 2; ++i)
 				{
-					for(int j = 0; j < HalfTaps; ++j)
-					{
-						dryBuffer[i][j] = previousBuffer[i][j + HalfTaps];
-					}
+					// Fill scratch buffer for unprocessed signal.
+					// We can't just use the input signal directly, because oversampling causes a delay
+					// for the processed signal, so we need to delay the dry as well.
+					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
+					memcpy(dryBuffer[i] + HalfTaps, inputs[i], CurrentCopyBytes);
+
+					// Create oversampled source signal with zero stuffing.
 					for(int j = 0; j < Taps4; ++j)
 					{
 						oversamplingBuffer[i][j*4]   = previousBuffer[i][j];
@@ -164,12 +208,11 @@ namespace WaveSabreCore
 					}
 					for(int j = 0; j < numSamples; ++j)
 					{
-						dryBuffer[i][HalfTaps + j] = inputs[i][j];
-
-						oversamplingBuffer[i][(Taps4 + j)*4]   = inputs[i][j];
-						oversamplingBuffer[i][(Taps4 + j)*4+1] = 0.0f;
-						oversamplingBuffer[i][(Taps4 + j)*4+2] = 0.0f;
-						oversamplingBuffer[i][(Taps4 + j)*4+3] = 0.0f;
+						const int offset = Taps4 + j;
+						oversamplingBuffer[i][offset*4]   = inputs[i][j];
+						oversamplingBuffer[i][offset*4+1] = 0.0f;
+						oversamplingBuffer[i][offset*4+2] = 0.0f;
+						oversamplingBuffer[i][offset*4+3] = 0.0f;
 					}
 
 					// Filter above original nyquist and waveshape.
@@ -201,9 +244,21 @@ namespace WaveSabreCore
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < numSamples; ++j)
 					{
-						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], bandlimitingBuffer[i][j*4 + Taps4], dryWet);
+						float v = bandlimitingBuffer[i][j*4 + Taps4];
+
+						// DC offset removal.
+						if(dcBlocking == DCBlock::On)
+						{
+							const float newPreviousDC = v;
+							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
+							previousSampleDC[i] = newPreviousDC;
+							previousSampleNoDC[i] = v;
+						}
+
+						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], v*outputGainScalar, dryWet);
 					}
 
+					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps4; ++j)
 					{
 						previousBuffer[i][j] = inputs[i][numSamples - Taps4 + j];
@@ -218,15 +273,15 @@ namespace WaveSabreCore
 		// Apply even harmonics to the signal.
 		float even = input;
 		if(p1 > 0.0f)
-			even = Helpers::Mix(input,
-                                static_cast<float>(Helpers::FastCos(input * Helpers::Mix(1.0f, 2.0f * 3.141592f, p1))),
+			even = Helpers::Mix(even,
+                                static_cast<float>(Helpers::FastCos(even * Helpers::Mix(1.0f, TwoPi, p1))),
                                 Helpers::Clamp(p1, 0.0f, 1.0f)*0.5f);
 
 		// Apply sine function fold wave shaping.
 		float twist = even;
 		if(p2 > 0.0f)
 			twist = Helpers::Mix(even,
-                                 static_cast<float>(Helpers::FastSin(even * Helpers::Mix(1.0f, 2.0f * 3.141592f, p2))),
+                                 static_cast<float>(Helpers::FastSin(even * Helpers::Mix(1.0f, TwoPi, p2))),
                                  Helpers::Clamp(p2, 0.0f, 1.0f));
 		
 		// Apply foldback distortion.
@@ -234,6 +289,7 @@ namespace WaveSabreCore
 		if(p3 > 0.0f)
 		{
 			fold *= (1.0f + p3);
+			// TODO: this conditional not strictly needed, maybe faster?
 			if(fold > 1.0f || fold < -1.0f)
 				fold = fabs(fabs(fmod(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
 		}
@@ -252,7 +308,7 @@ namespace WaveSabreCore
 			}
 			else
 			{
-				const float e = 2.71828f;
+				static const float e = 2.71828183f;
 				const float exp = Helpers::PowF(e, exponent);
 				tanh = (exp - 1.0f) / (exp + 1.0f);
 				tanh = Helpers::Mix(fold, tanh, Helpers::Clamp(p4, 0.0f, 1.0f));
@@ -271,8 +327,10 @@ namespace WaveSabreCore
 		case ParamIndices::Twist: twist = value; break;
 		case ParamIndices::Fold: fold = value; break;
 		case ParamIndices::Saturation: saturation = value; break;
-		case ParamIndices::Oversampling: oversampling = (Oversampling)(int)(value * 2.0f); break;
+		case ParamIndices::OutputGain: outputGain = Helpers::ParamToDb(value, 12.0f); break;
 		case ParamIndices::DryWet: dryWet = value; break;
+		case ParamIndices::Oversampling: oversampling = (Oversampling)(int)(value * 2.0f); break;
+		case ParamIndices::DCBlocking: dcBlocking = (DCBlock)(int)(value); break;
 		}
 	}
 
@@ -280,16 +338,18 @@ namespace WaveSabreCore
 	{
 		switch ((ParamIndices)index)
 		{
-		case ParamIndices::Twist:
+		case ParamIndices::InputGain:
 		default:
-			return twist;
+			return Helpers::DbToParam(inputGain, 12.0f);
 
-		case ParamIndices::InputGain: return Helpers::DbToParam(inputGain, 12.0f);
-		case ParamIndices::Saturation: return saturation;
-		case ParamIndices::Fold: return fold;
 		case ParamIndices::Even: return even;
-		case ParamIndices::Oversampling: return (float)oversampling / 2.0f;
+		case ParamIndices::Twist: return twist;
+		case ParamIndices::Fold: return fold;
+		case ParamIndices::Saturation: return saturation;
+		case ParamIndices::OutputGain: return Helpers::DbToParam(outputGain, 12.0f);
 		case ParamIndices::DryWet: return dryWet;
+		case ParamIndices::Oversampling: return float(oversampling) / 2.0f;
+		case ParamIndices::DCBlocking: return float(dcBlocking);
 		}
 	}
 
