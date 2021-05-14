@@ -15,6 +15,7 @@ namespace WaveSabreCore
 			Twist,
 			Fold,
 			Saturation,
+			Clip,
 			OutputGain,
 			DryWet,
 			Oversampling,
@@ -32,7 +33,7 @@ namespace WaveSabreCore
 		virtual int GetProcessingDelay() const override;
 
 	private:
-		float shape(float input, float p1, float p2, float p3, float p4);
+		float shape(float input, float p1, float p2, float p3, float p4, float p5);
 		void createSincImpulse(float* result, const int taps, const double cutoff);
 
 		enum class Oversampling
@@ -56,6 +57,7 @@ namespace WaveSabreCore
 		float twist;
 		float fold;
 		float saturation;
+		float clip;
 		float outputGain;
 		float dryWet;
 		Oversampling oversampling;

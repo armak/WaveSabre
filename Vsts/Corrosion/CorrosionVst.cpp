@@ -25,6 +25,7 @@ void CorrosionVst::getParameterName(VstInt32 index, char *text)
 	case Corrosion::ParamIndices::Twist: vst_strncpy(text, "Twist", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Fold: vst_strncpy(text, "Fold", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Saturation: vst_strncpy(text, "Saturation", kVstMaxParamStrLen); break;
+	case Corrosion::ParamIndices::Clip: vst_strncpy(text, "Clip", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::OutputGain: vst_strncpy(text, "Output", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::DryWet: vst_strncpy(text, "Dry/Wet", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Oversampling: vst_strncpy(text, "Oversampling", kVstMaxParamStrLen); break;

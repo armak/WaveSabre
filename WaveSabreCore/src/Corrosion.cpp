@@ -20,6 +20,7 @@ namespace WaveSabreCore
 		twist(0.0f),
 		fold(0.0f),
 		saturation(0.0f),
+		clip(0.0f),
 		outputGain(0.0f),
 		dryWet(1.0f),
 		oversampling(Oversampling::X1),
@@ -67,12 +68,13 @@ namespace WaveSabreCore
 		// float(1 + int(oversampling)*int(oversampling))
 		const float R_dc = 1.0f - (TwoPi * 10.0f) / (float(Helpers::CurrentSampleRate));
 
-		float inputGainScalar  = Helpers::DbToScalar(inputGain);
-		float outputGainScalar = Helpers::DbToScalar(outputGain);
+		const float inputGainScalar  = Helpers::DbToScalar(inputGain);
+		const float outputGainScalar = Helpers::DbToScalar(outputGain);
 		const float param1 =   4.0f * (even * even);
 		const float param2 =  10.0f * (twist * twist);
 		const float param3 = 100.0f * (fold * fold);
 		const float param4 =  20.0f * saturation;
+		const float param5 =  clip;
 
 		// TODO: Everything will fail horribly if numSamples is less than width of the FIR kernel,
 		// i.e. ASIO latency lower than 64 samples for 2x, or lower than 128 samples for 4x.
@@ -87,7 +89,7 @@ namespace WaveSabreCore
 					{
 						const float input = inputs[i][j];
 						const float inputWithGain = input * inputGainScalar;
-						float v = shape(inputWithGain, param1, param2, param3, param4);
+						float v = shape(inputWithGain, param1, param2, param3, param4, param5);
 
 						// DC offset removal.
 						if(dcBlocking == DCBlock::On)
@@ -141,7 +143,7 @@ namespace WaveSabreCore
 							filteredSample += sample * firResponse2[k];
 						}
 
-						waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2, param3, param4);
+						waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
 					}
 
 					// Band limit to original nyquist.
@@ -160,7 +162,8 @@ namespace WaveSabreCore
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < numSamples; ++j)
 					{
-						float v = bandlimitingBuffer[i][j*2];
+						// Sample with +1 offset to compensate for half a sample delay.
+						float v = bandlimitingBuffer[i][j*2 + 1];
 
 						// DC offset removal.
 						if(dcBlocking == DCBlock::On)
@@ -225,7 +228,7 @@ namespace WaveSabreCore
 							filteredSample += sample * firResponse4[k];
 						}
 
-						waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2, param3, param4);
+						waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
 					}
 				
 					// Band limit to original nyquist.
@@ -244,7 +247,8 @@ namespace WaveSabreCore
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < numSamples; ++j)
 					{
-						float v = bandlimitingBuffer[i][j*4 + Taps4];
+						// Sample with +1 offset to compensate for 1/4th sample delay.
+						float v = bandlimitingBuffer[i][j*4 + Taps4 + 1];
 
 						// DC offset removal.
 						if(dcBlocking == DCBlock::On)
@@ -268,7 +272,7 @@ namespace WaveSabreCore
 		}
 	}
 
-	float Corrosion::shape(float input, float p1, float p2, float p3, float p4)
+	float Corrosion::shape(float input, float p1, float p2, float p3, float p4, float p5)
 	{
 		// Apply even harmonics to the signal.
 		float even = input;
@@ -315,7 +319,17 @@ namespace WaveSabreCore
 			}
 		}
 
-		return tanh;
+		// Hard clipping.
+		float clip = tanh;
+		if(p5 > 0.0f)
+		{
+			// Clip to -6dB at maximum setting.
+			const float h = Helpers::Mix(1.0f, 0.5f, sqrt(p5));
+			const float k = 1.0f + p5*p5*100.0f;
+			clip = Helpers::Clamp(clip*k, -h, h);
+		}
+
+		return clip;
 	}
 
 	void Corrosion::SetParam(int index, float value)
@@ -327,6 +341,7 @@ namespace WaveSabreCore
 		case ParamIndices::Twist: twist = value; break;
 		case ParamIndices::Fold: fold = value; break;
 		case ParamIndices::Saturation: saturation = value; break;
+		case ParamIndices::Clip: clip = value; break;
 		case ParamIndices::OutputGain: outputGain = Helpers::ParamToDb(value, 12.0f); break;
 		case ParamIndices::DryWet: dryWet = value; break;
 		case ParamIndices::Oversampling: oversampling = (Oversampling)(int)(value * 2.0f); break;
@@ -346,6 +361,7 @@ namespace WaveSabreCore
 		case ParamIndices::Twist: return twist;
 		case ParamIndices::Fold: return fold;
 		case ParamIndices::Saturation: return saturation;
+		case ParamIndices::Clip: return clip;
 		case ParamIndices::OutputGain: return Helpers::DbToParam(outputGain, 12.0f);
 		case ParamIndices::DryWet: return dryWet;
 		case ParamIndices::Oversampling: return float(oversampling) / 2.0f;

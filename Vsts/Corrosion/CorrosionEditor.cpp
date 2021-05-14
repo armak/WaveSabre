@@ -4,7 +4,7 @@
 using namespace WaveSabreCore;
 
 CorrosionEditor::CorrosionEditor(AudioEffect *audioEffect)
-	: VstEditor(audioEffect, 580, 100, "Corrosion")
+	: VstEditor(audioEffect, 640, 100, "Corrosion")
 {
 }
 
@@ -22,6 +22,7 @@ void CorrosionEditor::Open()
 	addKnob((VstInt32)Corrosion::ParamIndices::Twist, "TWIST");
 	addKnob((VstInt32)Corrosion::ParamIndices::Fold, "FOLD");
 	addKnob((VstInt32)Corrosion::ParamIndices::Saturation, "SATURATE");
+	addKnob((VstInt32)Corrosion::ParamIndices::Clip, "CLIP");
 
 	addSpacer();
 
