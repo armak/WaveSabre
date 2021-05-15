@@ -12,6 +12,7 @@ namespace WaveSabreCore
 {
 	const double Corrosion::Pi = 3.141592653589793;
 	const float Corrosion::TwoPi = 2.0f * static_cast<float>(Pi);
+	const double Corrosion::FirCutoffRatio = 21000.0/44100.0;
 
 	Corrosion::Corrosion() :
 		Device((int)ParamIndices::NumParams),
@@ -26,8 +27,8 @@ namespace WaveSabreCore
 		oversampling(Oversampling::X1),
 		dcBlocking(DCBlock::Off)
 	{
-		createSincImpulse(firResponse2, Taps2, 0.243);
-		createSincImpulse(firResponse4, Taps4, 0.243*0.5);
+		createSincImpulse(firResponse2, Taps2, FirCutoffRatio * 0.5);
+		createSincImpulse(firResponse4, Taps4, FirCutoffRatio * 0.25);
 	}
 
 	void Corrosion::createSincImpulse(float* result, const int taps, const double cutoff)
