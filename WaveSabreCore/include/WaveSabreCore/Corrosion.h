@@ -69,6 +69,7 @@ namespace WaveSabreCore
 		float waveshapingBuffer[2][65536] = {};
 		float bandlimitingBuffer[2][65536] = {};
 		
+		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
 		static const int Taps4 = 128;
 		float firResponse2[Taps2];
