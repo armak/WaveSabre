@@ -3,6 +3,8 @@
 
 #include "Device.h"
 
+#define CORROSION_USE_DYNAMIC_BUFFERS
+
 namespace WaveSabreCore
 {
 	class Corrosion : public Device
@@ -35,6 +37,7 @@ namespace WaveSabreCore
 	private:
 		float shape(float input, float p1, float p2, float p3, float p4, float p5);
 		void createSincImpulse(float* result, const int taps, const double cutoff);
+		void reallocateBuffer(float* target[2], const size_t count);
 
 		enum class Oversampling
 		{
@@ -63,17 +66,26 @@ namespace WaveSabreCore
 		Oversampling oversampling;
 		DCBlock dcBlocking;
 
-		float previousBuffer[2][65536] = {};
-		float dryBuffer[2][65536] = {};
-		float oversamplingBuffer[2][65536] = {};
-		float waveshapingBuffer[2][65536] = {};
-		float bandlimitingBuffer[2][65536] = {};
-		
 		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
 		static const int Taps4 = 128;
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
+
+#ifdef CORROSION_USE_DYNAMIC_BUFFERS
+		float* dryBuffer[2] = {nullptr, nullptr};
+		float* oversamplingBuffer[2] = {nullptr, nullptr};
+		float* waveshapingBuffer[2] = {nullptr, nullptr};
+		float* bandlimitingBuffer[2] = {nullptr, nullptr};
+#else
+		float dryBuffer[2][65536] = {};
+		float oversamplingBuffer[2][65536] = {};
+		float waveshapingBuffer[2][65536] = {};
+		float bandlimitingBuffer[2][65536] = {};
+#endif
+		// Previous buffer size doesn't depend on incoming sample count,
+		// so we can allocate a static buffer that's always large enough.
+		float previousBuffer[2][Taps4] = {};
 
 		float previousSampleDC[2]   = {};
 		float previousSampleNoDC[2] = {};

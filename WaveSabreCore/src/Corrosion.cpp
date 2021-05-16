@@ -62,6 +62,14 @@ namespace WaveSabreCore
 #endif
 	}
 
+	void Corrosion::reallocateBuffer(float* target[2], const size_t count)
+	{
+		if(target[0]) delete[] target[0];
+		if(target[1]) delete[] target[1];
+		target[0] = new float[count]();
+		target[1] = new float[count]();
+	}
+
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
 		// Note: multiply sample rate with oversampling factor if the behavior ever changes
@@ -113,6 +121,13 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps2>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = numSamples * sizeof(float);
+
+#ifdef CORROSION_USE_DYNAMIC_BUFFERS
+				reallocateBuffer(dryBuffer, HalfTaps + numSamples);
+				reallocateBuffer(oversamplingBuffer, 2*(Taps2 + numSamples));
+				reallocateBuffer(waveshapingBuffer, 2*(Taps2 + numSamples));
+				reallocateBuffer(bandlimitingBuffer, 2*numSamples);
+#endif
 
 				for(int i = 0; i < 2; ++i)
 				{
@@ -193,6 +208,13 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps4>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = numSamples * sizeof(float);
+
+#ifdef CORROSION_USE_DYNAMIC_BUFFERS
+				reallocateBuffer(dryBuffer, HalfTaps + numSamples);
+				reallocateBuffer(oversamplingBuffer, 4*(Taps4*2 + numSamples));
+				reallocateBuffer(waveshapingBuffer, 4*(Taps4*2 + numSamples));
+				reallocateBuffer(bandlimitingBuffer, 4*(Taps4 + numSamples));
+#endif
 
 				for(int i = 0; i < 2; ++i)
 				{
