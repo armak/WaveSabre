@@ -32,7 +32,7 @@ void CorrosionEditor::Open()
 	addSpacer();
 
 	addKnob((VstInt32)Corrosion::ParamIndices::Oversampling, "QUALITY");
-	addKnob((VstInt32)Corrosion::ParamIndices::DCBlocking, "DC FILTER");
+	addKnob((VstInt32)Corrosion::ParamIndices::DCBlocking, "DC BLOCK");
 
 	VstEditor::Open();
 }

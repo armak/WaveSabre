@@ -24,12 +24,12 @@ void CorrosionVst::getParameterName(VstInt32 index, char *text)
 	case Corrosion::ParamIndices::Even: vst_strncpy(text, "Even", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Twist: vst_strncpy(text, "Twist", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Fold: vst_strncpy(text, "Fold", kVstMaxParamStrLen); break;
-	case Corrosion::ParamIndices::Saturation: vst_strncpy(text, "Saturation", kVstMaxParamStrLen); break;
+	case Corrosion::ParamIndices::Saturation: vst_strncpy(text, "Saturate", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::Clip: vst_strncpy(text, "Clip", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::OutputGain: vst_strncpy(text, "Output", kVstMaxParamStrLen); break;
 	case Corrosion::ParamIndices::DryWet: vst_strncpy(text, "Dry/Wet", kVstMaxParamStrLen); break;
-	case Corrosion::ParamIndices::Oversampling: vst_strncpy(text, "Oversampling", kVstMaxParamStrLen); break;
-	case Corrosion::ParamIndices::DCBlocking: vst_strncpy(text, "DC Filter", kVstMaxParamStrLen); break;
+	case Corrosion::ParamIndices::Oversampling: vst_strncpy(text, "Quality", kVstMaxParamStrLen); break;
+	case Corrosion::ParamIndices::DCBlocking: vst_strncpy(text, "DC Block", kVstMaxParamStrLen); break;
 	}
 }
 
