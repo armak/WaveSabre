@@ -7,6 +7,9 @@
 #endif
 
 #include <string.h>
+#include <immintrin.h>
+
+#define CORROSION_VECTORIZE_AVX
 
 namespace WaveSabreCore
 {
@@ -61,6 +64,23 @@ namespace WaveSabreCore
 		assert(fabsf(1.0f - sum) < 0.001f);
 #endif
 	}
+
+#ifdef CORROSION_VECTORIZE_AVX
+	// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
+	float sum8(__m256 x)
+	{
+		const __m128 hiQuad = _mm256_extractf128_ps(x, 1);
+		const __m128 loQuad = _mm256_castps256_ps128(x);
+		const __m128 sumQuad = _mm_add_ps(loQuad, hiQuad);
+		const __m128 loDual = sumQuad;
+		const __m128 hiDual = _mm_movehl_ps(sumQuad, sumQuad);
+		const __m128 sumDual = _mm_add_ps(loDual, hiDual);
+		const __m128 lo = sumDual;
+		const __m128 hi = _mm_shuffle_ps(sumDual, sumDual, 0x1);
+		const __m128 sum = _mm_add_ss(lo, hi);
+		return _mm_cvtss_f32(sum);
+	}
+#endif
 
 	void Corrosion::reallocateBuffer(float* target[2], const size_t count)
 	{
@@ -153,12 +173,23 @@ namespace WaveSabreCore
 					for(int j = 0; j < numSamples*2 + Taps2; ++j)
 					{
 						float filteredSample = 0.0f;
+#ifdef CORROSION_VECTORIZE_AVX
+						__m256 accu = _mm256_setzero_ps();
+						for(int k = 0; k < Taps2; k += 8)
+						{
+							__m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
+							__m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
+							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+						}
+
+						filteredSample = sum8(accu);
+#else
 						for(int k = 0; k < Taps2; ++k)
 						{
 							float sample = oversamplingBuffer[i][j + k];
 							filteredSample += sample * firResponse2[k];
 						}
-
+#endif
 						waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
 					}
 
@@ -166,12 +197,24 @@ namespace WaveSabreCore
 					for(int j = 0; j < numSamples*2; ++j)
 					{
 						float bandlimitedSample = 0.0f;
+#ifdef CORROSION_VECTORIZE_AVX
+						__m256 accu = _mm256_setzero_ps();
+						for(int k = 0; k < Taps2; k += 8)
+						{
+							__m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
+							__m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
+							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+						}
+
+						bandlimitedSample = sum8(accu);
+#else
 						for(int k = 0; k < Taps2; ++k)
 						{
 							float sample = waveshapingBuffer[i][j + k];
 							bandlimitedSample += sample * firResponse2[k];
 						}
-
+#endif
+						
 						bandlimitingBuffer[i][j] = bandlimitedSample;
 					}
 
@@ -245,12 +288,23 @@ namespace WaveSabreCore
 					for(int j = 0; j < numSamples*4 + Taps4*2; ++j)
 					{
 						float filteredSample = 0.0f;
+#ifdef CORROSION_VECTORIZE_AVX
+						__m256 accu = _mm256_setzero_ps();
+						for(int k = 0; k < Taps4; k += 8)
+						{
+							__m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
+							__m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+						}
+
+						filteredSample = sum8(accu);
+#else
 						for(int k = 0; k < Taps4; ++k)
 						{
 							float sample = oversamplingBuffer[i][j + k];
 							filteredSample += sample * firResponse4[k];
 						}
-
+#endif
 						waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
 					}
 				
@@ -258,12 +312,24 @@ namespace WaveSabreCore
 					for(int j = 0; j < numSamples*4 + Taps4; ++j)
 					{
 						float bandlimitedSample = 0.0f;
+#ifdef CORROSION_VECTORIZE_AVX
+						__m256 accu = _mm256_setzero_ps();
+						for(int k = 0; k < Taps4; k += 8)
+						{
+							__m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
+							__m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+						}
+
+						bandlimitedSample = sum8(accu);
+#else
 						for(int k = 0; k < Taps4; ++k)
 						{
 							float sample = waveshapingBuffer[i][j + k];
 							bandlimitedSample += sample * firResponse4[k];
 						}
-
+#endif
+						
 						bandlimitingBuffer[i][j] = bandlimitedSample;
 					}
 				
