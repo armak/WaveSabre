@@ -69,7 +69,7 @@ namespace WaveSabreCore
 
 #ifdef CORROSION_VECTORIZE_AVX
 	// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
-	float sum8(__m256 x)
+	__inline float horizontalVectorSum(const __m256 x)
 	{
 		const __m128 hiQuad = _mm256_extractf128_ps(x, 1);
 		const __m128 loQuad = _mm256_castps256_ps128(x);
@@ -183,12 +183,12 @@ namespace WaveSabreCore
 						__m256 accu = _mm256_setzero_ps();
 						for(int k = 0; k < Taps2; k += 8)
 						{
-							__m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
-							__m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
+							const __m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
 							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
 						}
 
-						filteredSample = sum8(accu);
+						filteredSample = horizontalVectorSum(accu);
 #else
 						for(int k = 0; k < Taps2; ++k)
 						{
@@ -204,15 +204,15 @@ namespace WaveSabreCore
 					{
 						float bandlimitedSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
-						__m256 accu = _mm256_setzero_ps();
+						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps2; k += 8)
 						{
-							__m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
-							__m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+							const __m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						bandlimitedSample = sum8(accu);
+						bandlimitedSample = horizontalVectorSum(sample);
 #else
 						for(int k = 0; k < Taps2; ++k)
 						{
@@ -299,15 +299,15 @@ namespace WaveSabreCore
 					{
 						float filteredSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
-						__m256 accu = _mm256_setzero_ps();
+						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps4; k += 8)
 						{
-							__m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
-							__m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+							const __m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						filteredSample = sum8(accu);
+						filteredSample = horizontalVectorSum(sample);
 #else
 						for(int k = 0; k < Taps4; ++k)
 						{
@@ -323,15 +323,15 @@ namespace WaveSabreCore
 					{
 						float bandlimitedSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
-						__m256 accu = _mm256_setzero_ps();
+						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps4; k += 8)
 						{
-							__m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
-							__m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+							const __m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						bandlimitedSample = sum8(accu);
+						bandlimitedSample = horizontalVectorSum(sample);
 #else
 						for(int k = 0; k < Taps4; ++k)
 						{
