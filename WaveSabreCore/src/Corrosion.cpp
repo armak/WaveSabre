@@ -28,7 +28,9 @@ namespace WaveSabreCore
 		outputGain(0.0f),
 		dryWet(1.0f),
 		oversampling(Oversampling::X1),
-		dcBlocking(DCBlock::Off)
+		dcBlocking(DCBlock::Off),
+		lastFrameSize(0),
+		oversamplingChanged(false)
 	{
 		createSincImpulse(firResponse2, Taps2, FirCutoffRatio * 0.5);
 		createSincImpulse(firResponse4, Taps4, FirCutoffRatio * 0.25);
@@ -143,10 +145,14 @@ namespace WaveSabreCore
 				const int CurrentCopyBytes = numSamples * sizeof(float);
 
 #ifdef CORROSION_USE_DYNAMIC_BUFFERS
-				reallocateBuffer(dryBuffer, HalfTaps + numSamples);
-				reallocateBuffer(oversamplingBuffer, 2*(Taps2 + numSamples));
-				reallocateBuffer(waveshapingBuffer, 2*(Taps2 + numSamples));
-				reallocateBuffer(bandlimitingBuffer, 2*numSamples);
+				if(lastFrameSize != numSamples || oversamplingChanged)
+				{
+					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
+					reallocateBuffer(oversamplingBuffer, 2 * (Taps2 + numSamples));
+					reallocateBuffer(waveshapingBuffer, 2 * (Taps2 + numSamples));
+					reallocateBuffer(bandlimitingBuffer, 2 * numSamples);
+					oversamplingChanged = false;
+				}
 #endif
 
 				for(int i = 0; i < 2; ++i)
@@ -253,10 +259,14 @@ namespace WaveSabreCore
 				const int CurrentCopyBytes = numSamples * sizeof(float);
 
 #ifdef CORROSION_USE_DYNAMIC_BUFFERS
-				reallocateBuffer(dryBuffer, HalfTaps + numSamples);
-				reallocateBuffer(oversamplingBuffer, 4*(Taps4*2 + numSamples));
-				reallocateBuffer(waveshapingBuffer, 4*(Taps4*2 + numSamples));
-				reallocateBuffer(bandlimitingBuffer, 4*(Taps4 + numSamples));
+				if(lastFrameSize != numSamples || oversamplingChanged)
+				{
+					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
+					reallocateBuffer(oversamplingBuffer, 4 * (Taps4 * 2 + numSamples));
+					reallocateBuffer(waveshapingBuffer, 4 * (Taps4 * 2 + numSamples));
+					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + numSamples));
+					oversamplingChanged = false;
+				}
 #endif
 
 				for(int i = 0; i < 2; ++i)
@@ -359,6 +369,8 @@ namespace WaveSabreCore
 				}
 			}
 		}
+
+		lastFrameSize = numSamples;
 	}
 
 	float Corrosion::shape(float input, float p1, float p2, float p3, float p4, float p5)
@@ -433,7 +445,13 @@ namespace WaveSabreCore
 		case ParamIndices::Clip: clip = value; break;
 		case ParamIndices::OutputGain: outputGain = Helpers::ParamToDb(value, 12.0f); break;
 		case ParamIndices::DryWet: dryWet = value; break;
-		case ParamIndices::Oversampling: oversampling = (Oversampling)(int)(value * 2.0f); break;
+		case ParamIndices::Oversampling:
+		{
+			const Oversampling newValue = (Oversampling)(int)(value * 2.0f);
+			oversamplingChanged = (newValue != oversampling);
+			oversampling = newValue;
+			break;
+		}
 		case ParamIndices::DCBlocking: dcBlocking = (DCBlock)(int)(value); break;
 		}
 	}
