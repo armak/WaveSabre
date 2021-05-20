@@ -66,6 +66,9 @@ namespace WaveSabreCore
 		Oversampling oversampling;
 		DCBlock dcBlocking;
 
+		int lastFrameSize;
+		bool oversamplingChanged;
+
 		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
 		static const int Taps4 = 128;
