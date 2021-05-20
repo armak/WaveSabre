@@ -448,7 +448,7 @@ namespace WaveSabreCore
 		case ParamIndices::Oversampling:
 		{
 			const Oversampling newValue = (Oversampling)(int)(value * 2.0f);
-			oversamplingChanged = (newValue != oversampling);
+			oversamplingChanged = (newValue != oversampling && !oversamplingChanged);
 			oversampling = newValue;
 			break;
 		}
