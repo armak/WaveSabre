@@ -3,8 +3,6 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/AllPass.h
 	include/WaveSabreCore/AllPassDelay.h
 	include/WaveSabreCore/BiquadFilter.h
-	include/WaveSabreCore/Butter.h
-	include/WaveSabreCore/ButterworthFilter.h
 	include/WaveSabreCore/Cathedral.h
 	include/WaveSabreCore/Chamber.h
 	include/WaveSabreCore/Comb.h
@@ -33,8 +31,6 @@ add_library(WaveSabreCore
 	src/AllPass.cpp
 	src/AllPassDelay.cpp
 	src/BiquadFilter.cpp
-	src/Butter.cpp
-	src/ButterworthFilter.cpp
 	src/Cathedral.cpp
 	src/Chamber.cpp
 	src/Comb.cpp

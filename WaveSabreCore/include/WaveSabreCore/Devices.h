@@ -16,6 +16,5 @@
 #include "Twister.h"
 #include "Cathedral.h"
 #include "Corrosion.h"
-#include "Butter.h"
 
 #endif
