@@ -176,18 +176,18 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < numSamples*2 + Taps2; ++j)
 					{
-						float filteredSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
-						__m256 accu = _mm256_setzero_ps();
+						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps2; k += 8)
 						{
 							const __m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
 							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							accu = _mm256_add_ps(accu, _mm256_mul_ps(buffer, kernel));
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						filteredSample = horizontalVectorSum(accu);
+						float filteredSample = horizontalVectorSum(sample);
 #else
+						float filteredSample = 0.0f;
 						for(int k = 0; k < Taps2; ++k)
 						{
 							float sample = oversamplingBuffer[i][j + k];
@@ -200,7 +200,6 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < numSamples*2; ++j)
 					{
-						float bandlimitedSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
 						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps2; k += 8)
@@ -210,8 +209,9 @@ namespace WaveSabreCore
 							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						bandlimitedSample = horizontalVectorSum(sample);
+						float bandlimitedSample = horizontalVectorSum(sample);
 #else
+						float bandlimitedSample = 0.0f;
 						for(int k = 0; k < Taps2; ++k)
 						{
 							float sample = waveshapingBuffer[i][j + k];
@@ -293,7 +293,6 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < numSamples*4 + Taps4*2; ++j)
 					{
-						float filteredSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
 						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps4; k += 8)
@@ -303,8 +302,9 @@ namespace WaveSabreCore
 							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						filteredSample = horizontalVectorSum(sample);
+						float filteredSample = horizontalVectorSum(sample);
 #else
+						float filteredSample = 0.0f;
 						for(int k = 0; k < Taps4; ++k)
 						{
 							float sample = oversamplingBuffer[i][j + k];
@@ -317,7 +317,6 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < numSamples*4 + Taps4; ++j)
 					{
-						float bandlimitedSample = 0.0f;
 #ifdef CORROSION_VECTORIZE_AVX
 						__m256 sample = _mm256_setzero_ps();
 						for(int k = 0; k < Taps4; k += 8)
@@ -327,8 +326,9 @@ namespace WaveSabreCore
 							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
 						}
 
-						bandlimitedSample = horizontalVectorSum(sample);
+						float bandlimitedSample = horizontalVectorSum(sample);
 #else
+						float bandlimitedSample = 0.0f;
 						for(int k = 0; k < Taps4; ++k)
 						{
 							float sample = waveshapingBuffer[i][j + k];
