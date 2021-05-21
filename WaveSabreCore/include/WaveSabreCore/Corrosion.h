@@ -75,17 +75,11 @@ namespace WaveSabreCore
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
 
-#ifdef CORROSION_USE_DYNAMIC_BUFFERS
 		float* dryBuffer[2] = {nullptr, nullptr};
 		float* oversamplingBuffer[2] = {nullptr, nullptr};
 		float* waveshapingBuffer[2] = {nullptr, nullptr};
 		float* bandlimitingBuffer[2] = {nullptr, nullptr};
-#else
-		float dryBuffer[2][65536] = {};
-		float oversamplingBuffer[2][65536] = {};
-		float waveshapingBuffer[2][65536] = {};
-		float bandlimitingBuffer[2][65536] = {};
-#endif
+
 		// Previous buffer size doesn't depend on incoming sample count,
 		// so we can allocate a static buffer that's always large enough.
 		float previousBuffer[2][Taps4] = {};

@@ -144,7 +144,6 @@ namespace WaveSabreCore
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = numSamples * sizeof(float);
 
-#ifdef CORROSION_USE_DYNAMIC_BUFFERS
 				if(lastFrameSize != numSamples || oversamplingChanged)
 				{
 					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
@@ -153,7 +152,6 @@ namespace WaveSabreCore
 					reallocateBuffer(bandlimitingBuffer, 2 * numSamples);
 					oversamplingChanged = false;
 				}
-#endif
 
 				for(int i = 0; i < 2; ++i)
 				{
@@ -258,7 +256,6 @@ namespace WaveSabreCore
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = numSamples * sizeof(float);
 
-#ifdef CORROSION_USE_DYNAMIC_BUFFERS
 				if(lastFrameSize != numSamples || oversamplingChanged)
 				{
 					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
@@ -267,7 +264,6 @@ namespace WaveSabreCore
 					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + numSamples));
 					oversamplingChanged = false;
 				}
-#endif
 
 				for(int i = 0; i < 2; ++i)
 				{
