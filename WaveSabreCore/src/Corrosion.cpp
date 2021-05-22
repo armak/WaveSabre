@@ -72,10 +72,12 @@ namespace WaveSabreCore
 			{
 				buffer.upsampleFrom(inputs, numSamples);
 
+				const auto oversampleCount = buffer.getOversampleCount();
+
+				// Perform waveshaping on the oversampled buffer.
 				for(int i = 0; i < 2; ++i)
 				{
-					const auto length = buffer.getOversampleCount();
-					for(int j = 0; j < length; ++j)
+					for(int j = 0; j < oversampleCount; ++j)
 					{
 						buffer(i, j) = shape(inputGainScalar*buffer(i, j), param1, param2, param3, param4, param5);
 					}
@@ -83,7 +85,7 @@ namespace WaveSabreCore
 
 				buffer.downsampleTo(outputs);
 
-				// Decimate the bandlimited signal for output.
+				// Perform DC filtering, output gain and dry/wet mixing.
 				for(int i = 0; i < 2; ++i)
 				{
 					for(int j = 0; j  < numSamples; ++j)
