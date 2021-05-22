@@ -9,14 +9,11 @@
 #include <string.h>
 #include <immintrin.h>
 
-#define CORROSION_VECTORIZE_AVX
-
 namespace WaveSabreCore
 {
 	const double OversamplingBuffer::Pi = 3.141592653589793;
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
-#ifdef CORROSION_VECTORIZE_AVX
 	// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
 	__inline float horizontalVectorSum(const __m256 x)
 	{
@@ -31,7 +28,6 @@ namespace WaveSabreCore
 		const __m128 sum = _mm_add_ss(lo, hi);
 		return _mm_cvtss_f32(sum);
 	}
-#endif
 
 	OversamplingBuffer::OversamplingBuffer(const Oversampling factor) : oversampling(factor), oversamplingChanged(true), lastFrameSize(0)
 	{
@@ -41,6 +37,14 @@ namespace WaveSabreCore
 
 	OversamplingBuffer::~OversamplingBuffer()
 	{
+		if(dryBuffer[0]) delete[] dryBuffer[0];
+		if(dryBuffer[1]) delete[] dryBuffer[1];
+		if(upsamplingBuffer[0]) delete[] upsamplingBuffer[0];
+		if(upsamplingBuffer[1]) delete[] upsamplingBuffer[1];
+		if(oversampleBuffer[0]) delete[] oversampleBuffer[0];
+		if(oversampleBuffer[1]) delete[] oversampleBuffer[1];
+		if(bandlimitingBuffer[0]) delete[] bandlimitingBuffer[0];
+		if(bandlimitingBuffer[1]) delete[] bandlimitingBuffer[1];
 	}
 
 	void OversamplingBuffer::createSincImpulse(float* result, const int taps, const double cutoff)
@@ -84,16 +88,37 @@ namespace WaveSabreCore
 
 	void OversamplingBuffer::setOversamplingFactor(const Oversampling factor)
 	{
+		oversamplingChanged = (factor != oversampling && !oversamplingChanged);
 		oversampling = factor;
-		oversamplingChanged = true;
 	}
 
 	int OversamplingBuffer::getOversampleCount() const
 	{
-		return lastFrameSize * (((int)(oversampling))*((int)(oversampling))) + Taps2;
+		const auto oversamplingInteger = (int)(oversampling);
+		switch(oversampling)
+		{
+			case Oversampling::X1: return lastFrameSize;
+			case Oversampling::X2: return lastFrameSize*2 + Taps2;
+			case Oversampling::X4: return lastFrameSize*4 + Taps4*2;
+		}
 	}
 
-	void OversamplingBuffer::upsample(float** input, int samples)
+	int OversamplingBuffer::getDelaySamples() const
+	{
+		switch(oversampling)
+		{
+			case OversamplingBuffer::Oversampling::X1:
+				return 0;
+			case OversamplingBuffer::Oversampling::X2:
+				return Taps2>>1;
+			case OversamplingBuffer::Oversampling::X4:
+				return Taps4>>1;
+			default:
+				return 0;
+		}
+	}
+
+	void OversamplingBuffer::upsampleFrom(float** input, int samples)
 	{
 		switch(oversampling)
 		{
@@ -152,13 +177,79 @@ namespace WaveSabreCore
 						previousBuffer[i][j] = input[i][samples - Taps2 + j];
 					}
 				}
+
+				break;
+			}
+
+			case Oversampling::X4:
+			{
+				const int HalfTaps = Taps4>>1;
+				const int PreviousCopyBytes = HalfTaps * sizeof(float);
+				const int CurrentCopyBytes = samples * sizeof(float);
+
+				if(lastFrameSize != samples || oversamplingChanged)
+				{
+					reallocateBuffer(dryBuffer, HalfTaps + samples);
+					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + samples));
+					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + samples));
+					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + samples));
+					oversamplingChanged = false;
+				}
+
+				for(int i = 0; i < 2; ++i)
+				{
+					// Fill scratch buffer for unprocessed signal.
+					// We can't just use the input signal directly, because oversampling causes a delay
+					// for the processed signal, so we need to delay the dry as well.
+					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
+					memcpy(dryBuffer[i] + HalfTaps, input[i], CurrentCopyBytes);
+
+					// Create oversampled source signal with zero stuffing.
+					for(int j = 0; j < Taps4; ++j)
+					{
+						upsamplingBuffer[i][j*4]   = previousBuffer[i][j];
+						upsamplingBuffer[i][j*4+1] = 0.0f;
+						upsamplingBuffer[i][j*4+2] = 0.0f;
+						upsamplingBuffer[i][j*4+3] = 0.0f;
+					}
+					for(int j = 0; j < samples; ++j)
+					{
+						const int offset = Taps4 + j;
+						upsamplingBuffer[i][offset*4]   = input[i][j];
+						upsamplingBuffer[i][offset*4+1] = 0.0f;
+						upsamplingBuffer[i][offset*4+2] = 0.0f;
+						upsamplingBuffer[i][offset*4+3] = 0.0f;
+					}
+
+					// Filter above original nyquist and waveshape.
+					for(int j = 0; j < samples*4 + Taps4*2; ++j)
+					{
+						__m256 sample = _mm256_setzero_ps();
+						for(int k = 0; k < Taps4; k += 8)
+						{
+							const __m256 buffer = _mm256_loadu_ps( &(upsamplingBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
+						}
+
+						oversampleBuffer[i][j] = 4.0f * horizontalVectorSum(sample);
+					}
+
+					// The last samples frum current buffer need to be copied for the next round.
+					for(int j = 0; j < Taps4; ++j)
+					{
+						previousBuffer[i][j] = input[i][samples - Taps4 + j];
+					}
+				}
+
+				break;
 			}
 		}
 		
 		lastFrameSize = samples;
 	}
 
-	void OversamplingBuffer::downsample(float** output)
+	void OversamplingBuffer::downsampleTo(float** output)
 	{
 		switch(oversampling)
 		{
@@ -184,34 +275,45 @@ namespace WaveSabreCore
 					for(int j = 0; j  < lastFrameSize; ++j)
 					{
 						// Sample with +1 offset to compensate for half a sample delay.
-						float v = bandlimitingBuffer[i][j*2 + 1];
-
-						// DC offset removal.
-						/*
-						if(dcBlocking == DCBlock::On)
-						{
-							const float newPreviousDC = v;
-							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
-							previousSampleDC[i] = newPreviousDC;
-							previousSampleNoDC[i] = v;
-						}
-						*/
-
-						//output[i][j] = Helpers::Mix(dryBuffer[i][j], v*outputGainScalar, dryWet);
-						output[i][j] = v;
+						output[i][j] = bandlimitingBuffer[i][j*2 + 1];
 					}
 				}
+
+				break;
+			}
+
+			case Oversampling::X4:
+			{
+				for(int i = 0; i < 2; ++i)
+				{
+					// Band limit to original nyquist.
+					for(int j = 0; j < lastFrameSize*4 + Taps4; ++j)
+					{
+						__m256 sample = _mm256_setzero_ps();
+						for(int k = 0; k < Taps4; k += 8)
+						{
+							const __m256 buffer = _mm256_loadu_ps( &(oversampleBuffer[i][j + k]) );
+							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
+							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
+						}
+
+						bandlimitingBuffer[i][j] = horizontalVectorSum(sample);
+					}
+
+					// Decimate the bandlimited signal for output.
+					for(int j = 0; j  < lastFrameSize; ++j)
+					{
+						// Sample with +1 offset to compensate for half a sample delay.
+						output[i][j] = bandlimitingBuffer[i][j*4 + Taps4 + 1];
+					}
+				}
+
+				break;
 			}
 		}
 	}
 
-
-	/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-
-	const double Corrosion::Pi = 3.141592653589793;
-	const float Corrosion::TwoPi = 2.0f * static_cast<float>(Pi);
-	const double Corrosion::FirCutoffRatio = 21000.0/44100.0;
+	const float Corrosion::TwoPi = 2.0f * static_cast<float>(3.141592653589793);
 
 	Corrosion::Corrosion() :
 		Device((int)ParamIndices::NumParams),
@@ -223,53 +325,10 @@ namespace WaveSabreCore
 		clip(0.0f),
 		outputGain(0.0f),
 		dryWet(1.0f),
-		oversampling(Oversampling::X2),
+		oversampling(OversamplingBuffer::Oversampling::X1),
 		dcBlocking(DCBlock::Off),
-		lastFrameSize(0),
-		oversamplingChanged(false),
-		buffer(OversamplingBuffer::Oversampling::X2)
+		buffer(OversamplingBuffer::Oversampling::X1)
 	{
-		createSincImpulse(firResponse2, Taps2, FirCutoffRatio * 0.5);
-		createSincImpulse(firResponse4, Taps4, FirCutoffRatio * 0.25);
-	}
-
-	void Corrosion::createSincImpulse(float* result, const int taps, const double cutoff)
-	{
-		const double M = static_cast<double>(taps) - 1.0;
-
-		// Generate sinc impulse with a window.
-		for(int i = 0; i < taps; ++i)
-		{
-			const double d = static_cast<double>(i);
-			double impulse = 0.0;
-			if(d == M*0.5)
-			{
-				impulse = 2.0*cutoff;
-			}
-			else
-			{
-				double n = d - M*0.5;
-				impulse = Helpers::FastSin(2.0*Pi*cutoff*n) / (Pi*n);
-			}
-
-			// Blackman window.
-			const double window = 0.42 - (0.5*Helpers::FastCos(2.0*Pi*d/M)) + (0.08*Helpers::FastCos(4.0*Pi*d/M));
-			result[i] = static_cast<float>(impulse * window);
-		}
-
-#ifdef _DEBUG
-		float sum = 0.0f;
-		for(int i = 0; i < taps; ++i) sum += result[i];
-		assert(fabsf(1.0f - sum) < 0.001f);
-#endif
-	}
-
-	void Corrosion::reallocateBuffer(float* target[2], const size_t count)
-	{
-		if(target[0]) delete[] target[0];
-		if(target[1]) delete[] target[1];
-		target[0] = new float[count]();
-		target[1] = new float[count]();
 	}
 
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
@@ -292,7 +351,7 @@ namespace WaveSabreCore
 
 		switch(oversampling)
 		{
-			case Oversampling::X1:
+			case OversamplingBuffer::Oversampling::X1:
 			{
 				for(int i = 0; i < 2; ++i)
 				{
@@ -318,112 +377,28 @@ namespace WaveSabreCore
 				break;
 			}
 
-			case Oversampling::X2:
+			case OversamplingBuffer::Oversampling::X2:
+			case OversamplingBuffer::Oversampling::X4:
 			{
-				buffer.setOversamplingFactor(OversamplingBuffer::Oversampling::X2);
+				buffer.upsampleFrom(inputs, numSamples);
 
-				buffer.upsample(inputs, numSamples);
 				for(int i = 0; i < 2; ++i)
 				{
-					buffer.setActiveChannel(i);
 					const auto length = buffer.getOversampleCount();
 					for(int j = 0; j < length; ++j)
 					{
-						buffer[j] = shape(2.0f*inputGainScalar*buffer[j], param1, param2, param3, param4, param5);
+						buffer(i, j) = shape(inputGainScalar*buffer(i, j), param1, param2, param3, param4, param5);
 					}
 				}
 
-				buffer.downsample(outputs);
+				buffer.downsampleTo(outputs);
 
-				/*
-
-				const int HalfTaps = Taps2>>1;
-				const int PreviousCopyBytes = HalfTaps * sizeof(float);
-				const int CurrentCopyBytes = numSamples * sizeof(float);
-
-				if(lastFrameSize != numSamples || oversamplingChanged)
-				{
-					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
-					reallocateBuffer(oversamplingBuffer, 2 * (Taps2 + numSamples));
-					reallocateBuffer(waveshapingBuffer, 2 * (Taps2 + numSamples));
-					reallocateBuffer(bandlimitingBuffer, 2 * numSamples);
-					oversamplingChanged = false;
-				}
-
+				// Decimate the bandlimited signal for output.
 				for(int i = 0; i < 2; ++i)
 				{
-					// Fill scratch buffer for unprocessed signal.
-					// We can't just use the input signal directly, because oversampling causes a delay
-					// for the processed signal, so we need to delay the dry as well.
-					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					memcpy(dryBuffer[i] + HalfTaps, inputs[i], CurrentCopyBytes);
-
-					for(int j = 0; j < Taps2; ++j)
-					{
-						oversamplingBuffer[i][j*2]   = previousBuffer[i][j];
-						oversamplingBuffer[i][j*2+1] = 0.0f;
-					}
-					for(int j = 0; j < numSamples; ++j)
-					{
-						const int offset = Taps2 + j;
-						oversamplingBuffer[i][offset*2]   = inputs[i][j];
-						oversamplingBuffer[i][offset*2+1] = 0.0f;
-					}
-
-					// Filter above original nyquist and waveshape.
-					for(int j = 0; j < numSamples*2 + Taps2; ++j)
-					{
-#ifdef CORROSION_VECTORIZE_AVX
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps2; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						float filteredSample = horizontalVectorSum(sample);
-#else
-						float filteredSample = 0.0f;
-						for(int k = 0; k < Taps2; ++k)
-						{
-							float sample = oversamplingBuffer[i][j + k];
-							filteredSample += sample * firResponse2[k];
-						}
-#endif
-						waveshapingBuffer[i][j] = shape(2.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
-					}
-
-					// Band limit to original nyquist.
-					for(int j = 0; j < numSamples*2; ++j)
-					{
-#ifdef CORROSION_VECTORIZE_AVX
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps2; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						float bandlimitedSample = horizontalVectorSum(sample);
-#else
-						float bandlimitedSample = 0.0f;
-						for(int k = 0; k < Taps2; ++k)
-						{
-							float sample = waveshapingBuffer[i][j + k];
-							bandlimitedSample += sample * firResponse2[k];
-						}
-#endif
-						
-						bandlimitingBuffer[i][j] = bandlimitedSample;
-					}
-
-					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < numSamples; ++j)
 					{
-						// Sample with +1 offset to compensate for half a sample delay.
-						float v = bandlimitingBuffer[i][j*2 + 1];
+						float v = outputs[i][j];
 
 						// DC offset removal.
 						if(dcBlocking == DCBlock::On)
@@ -434,136 +409,13 @@ namespace WaveSabreCore
 							previousSampleNoDC[i] = v;
 						}
 
-						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], v*outputGainScalar, dryWet);
-					}
-
-					// The last samples frum current buffer need to be copied for the next round.
-					for(int j = 0; j < Taps2; ++j)
-					{
-						previousBuffer[i][j] = inputs[i][numSamples - Taps2 + j];
+						outputs[i][j] = Helpers::Mix(buffer.dry(i, j), v*outputGainScalar, dryWet);
 					}
 				}
-				*/
+
 				break;
 			}
-
-			case Oversampling::X4:
-			{
-				const int HalfTaps = Taps4>>1;
-				const int PreviousCopyBytes = HalfTaps * sizeof(float);
-				const int CurrentCopyBytes = numSamples * sizeof(float);
-
-				if(lastFrameSize != numSamples || oversamplingChanged)
-				{
-					reallocateBuffer(dryBuffer, HalfTaps + numSamples);
-					reallocateBuffer(oversamplingBuffer, 4 * (Taps4 * 2 + numSamples));
-					reallocateBuffer(waveshapingBuffer, 4 * (Taps4 * 2 + numSamples));
-					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + numSamples));
-					oversamplingChanged = false;
-				}
-
-				for(int i = 0; i < 2; ++i)
-				{
-					// Fill scratch buffer for unprocessed signal.
-					// We can't just use the input signal directly, because oversampling causes a delay
-					// for the processed signal, so we need to delay the dry as well.
-					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					memcpy(dryBuffer[i] + HalfTaps, inputs[i], CurrentCopyBytes);
-
-					// Create oversampled source signal with zero stuffing.
-					for(int j = 0; j < Taps4; ++j)
-					{
-						oversamplingBuffer[i][j*4]   = previousBuffer[i][j];
-						oversamplingBuffer[i][j*4+1] = 0.0f;
-						oversamplingBuffer[i][j*4+2] = 0.0f;
-						oversamplingBuffer[i][j*4+3] = 0.0f;
-					}
-					for(int j = 0; j < numSamples; ++j)
-					{
-						const int offset = Taps4 + j;
-						oversamplingBuffer[i][offset*4]   = inputs[i][j];
-						oversamplingBuffer[i][offset*4+1] = 0.0f;
-						oversamplingBuffer[i][offset*4+2] = 0.0f;
-						oversamplingBuffer[i][offset*4+3] = 0.0f;
-					}
-
-					// Filter above original nyquist and waveshape.
-					for(int j = 0; j < numSamples*4 + Taps4*2; ++j)
-					{
-#ifdef CORROSION_VECTORIZE_AVX
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps4; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(oversamplingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						float filteredSample = horizontalVectorSum(sample);
-#else
-						float filteredSample = 0.0f;
-						for(int k = 0; k < Taps4; ++k)
-						{
-							float sample = oversamplingBuffer[i][j + k];
-							filteredSample += sample * firResponse4[k];
-						}
-#endif
-						waveshapingBuffer[i][j] = shape(4.0f*inputGainScalar*filteredSample, param1, param2, param3, param4, param5);
-					}
-				
-					// Band limit to original nyquist.
-					for(int j = 0; j < numSamples*4 + Taps4; ++j)
-					{
-#ifdef CORROSION_VECTORIZE_AVX
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps4; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(waveshapingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						float bandlimitedSample = horizontalVectorSum(sample);
-#else
-						float bandlimitedSample = 0.0f;
-						for(int k = 0; k < Taps4; ++k)
-						{
-							float sample = waveshapingBuffer[i][j + k];
-							bandlimitedSample += sample * firResponse4[k];
-						}
-#endif
-						
-						bandlimitingBuffer[i][j] = bandlimitedSample;
-					}
-				
-					// Decimate the bandlimited signal for output.
-					for(int j = 0; j  < numSamples; ++j)
-					{
-						// Sample with +1 offset to compensate for 1/4th sample delay.
-						float v = bandlimitingBuffer[i][j*4 + Taps4 + 1];
-
-						// DC offset removal.
-						if(dcBlocking == DCBlock::On)
-						{
-							const float newPreviousDC = v;
-							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
-							previousSampleDC[i] = newPreviousDC;
-							previousSampleNoDC[i] = v;
-						}
-
-						outputs[i][j] = Helpers::Mix(dryBuffer[i][j], v*outputGainScalar, dryWet);
-					}
-
-					// The last samples frum current buffer need to be copied for the next round.
-					for(int j = 0; j < Taps4; ++j)
-					{
-						previousBuffer[i][j] = inputs[i][numSamples - Taps4 + j];
-					}
-				}
-			}
 		}
-
-		lastFrameSize = numSamples;
 	}
 
 	float Corrosion::shape(float input, float p1, float p2, float p3, float p4, float p5)
@@ -640,9 +492,8 @@ namespace WaveSabreCore
 		case ParamIndices::DryWet: dryWet = value; break;
 		case ParamIndices::Oversampling:
 		{
-			const Oversampling newValue = (Oversampling)(int)(value * 2.0f);
-			oversamplingChanged = (newValue != oversampling && !oversamplingChanged);
-			oversampling = newValue;
+			oversampling = (OversamplingBuffer::Oversampling)(int)(value * 2.0f);
+			buffer.setOversamplingFactor(oversampling);
 			break;
 		}
 		case ParamIndices::DCBlocking: dcBlocking = (DCBlock)(int)(value); break;
@@ -671,16 +522,6 @@ namespace WaveSabreCore
 
 	int Corrosion::GetProcessingDelay() const
 	{
-		switch(oversampling)
-		{
-			case Oversampling::X1:
-				return 0;
-			case Oversampling::X2:
-				return Taps2>>1;
-			case Oversampling::X4:
-				return Taps4>>1;
-			default:
-				return 0;
-		}
+		return buffer.getDelaySamples();
 	}
 }
