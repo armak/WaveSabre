@@ -14,11 +14,19 @@ namespace WaveSabreCore
 	const double OversamplingBuffer::Pi = 3.141592653589793;
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
-	// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
-	float horizontalVectorSum(const __m256 x)
+	float convolveSIMD(const float* buffer, const float* kernel, const int length, const int index)
 	{
-		const __m128 hiQuad = _mm256_extractf128_ps(x, 1);
-		const __m128 loQuad = _mm256_castps256_ps128(x);
+		__m256 samples = _mm256_setzero_ps();
+		for (int k = 0; k < length; k += 8)
+		{
+			const __m256 bufferVector = _mm256_loadu_ps(&(buffer[index + k]));
+			const __m256 kernelVector = _mm256_load_ps(&(kernel[k]));
+			samples = _mm256_add_ps(samples, _mm256_mul_ps(bufferVector, kernelVector));
+		}
+
+		// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
+		const __m128 hiQuad = _mm256_extractf128_ps(samples, 1);
+		const __m128 loQuad = _mm256_castps256_ps128(samples);
 		const __m128 sumQuad = _mm_add_ps(loQuad, hiQuad);
 		const __m128 loDual = sumQuad;
 		const __m128 hiDual = _mm_movehl_ps(sumQuad, sumQuad);
@@ -160,15 +168,7 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < samples*2 + Taps2; ++j)
 					{
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps2; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(upsamplingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						oversampleBuffer[i][j] = 2.0f * horizontalVectorSum(sample);
+						oversampleBuffer[i][j] = 2.0f * convolveSIMD(upsamplingBuffer[i], firResponse2, Taps2, j);
 					}
 
 					// The last samples frum current buffer need to be copied for the next round.
@@ -224,15 +224,7 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < samples*4 + Taps4*2; ++j)
 					{
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps4; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(upsamplingBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						oversampleBuffer[i][j] = 4.0f * horizontalVectorSum(sample);
+						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, Taps4, j);
 					}
 
 					// The last samples frum current buffer need to be copied for the next round.
@@ -260,15 +252,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*2; ++j)
 					{
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps2; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(oversampleBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse2[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						bandlimitingBuffer[i][j] = horizontalVectorSum(sample);
+						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse2, Taps2, j);
 					}
 
 					// Decimate the bandlimited signal for output.
@@ -289,15 +273,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*4 + Taps4; ++j)
 					{
-						__m256 sample = _mm256_setzero_ps();
-						for(int k = 0; k < Taps4; k += 8)
-						{
-							const __m256 buffer = _mm256_loadu_ps( &(oversampleBuffer[i][j + k]) );
-							const __m256 kernel = _mm256_load_ps( &(firResponse4[k]) );
-							sample = _mm256_add_ps(sample, _mm256_mul_ps(buffer, kernel));
-						}
-
-						bandlimitingBuffer[i][j] = horizontalVectorSum(sample);
+						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse4, Taps4, j);
 					}
 
 					// Decimate the bandlimited signal for output.
