@@ -49,11 +49,17 @@ namespace WaveSabreCore
 		float inputQueue[2][InputQueueLength] = {};
 		int writePosition = 0;
 		int readPosition = 0;
-
+#ifdef STATIC_BUFFERS
+		float dryBuffer[2][4096] = {};
+		float upsamplingBuffer[2][4096] = {};
+		float oversampleBuffer[2][4096] = {};
+		float bandlimitingBuffer[2][4096] = {};
+#else
 		float* dryBuffer[2] = {nullptr, nullptr};
 		float* upsamplingBuffer[2] = {nullptr, nullptr};
 		float* oversampleBuffer[2] = {nullptr, nullptr};
 		float* bandlimitingBuffer[2] = {nullptr, nullptr};
+#endif
 		
 		float previousBuffer[2][Taps4] = {};
 

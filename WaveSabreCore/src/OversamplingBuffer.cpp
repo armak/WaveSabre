@@ -45,6 +45,7 @@ namespace WaveSabreCore
 
 	OversamplingBuffer::~OversamplingBuffer()
 	{
+#ifndef STATIC_BUFFERS
 		if(dryBuffer[0]) delete[] dryBuffer[0];
 		if(dryBuffer[1]) delete[] dryBuffer[1];
 		if(upsamplingBuffer[0]) delete[] upsamplingBuffer[0];
@@ -53,6 +54,7 @@ namespace WaveSabreCore
 		if(oversampleBuffer[1]) delete[] oversampleBuffer[1];
 		if(bandlimitingBuffer[0]) delete[] bandlimitingBuffer[0];
 		if(bandlimitingBuffer[1]) delete[] bandlimitingBuffer[1];
+#endif
 	}
 
 	void OversamplingBuffer::createSincImpulse(float* result, const int taps, const double cutoff)
@@ -146,7 +148,7 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps2>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = samples * sizeof(float);
-
+#ifndef STATIC_BUFFERS
 				if(lastFrameSize != samples || oversamplingChanged)
 				{
 					reallocateBuffer(dryBuffer, HalfTaps + samples);
@@ -155,7 +157,7 @@ namespace WaveSabreCore
 					reallocateBuffer(bandlimitingBuffer, 2 * samples);
 					oversamplingChanged = false;
 				}
-
+#endif				
 				for(int i = 0; i < 2; ++i)
 				{
 					// Fill scratch buffer for unprocessed signal.
@@ -164,7 +166,7 @@ namespace WaveSabreCore
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
 					for(int j = 0; j < samples; ++j)
 					{
-						dryBuffer[i][HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
+						(dryBuffer[i][j + HalfTaps]) = inputQueue[i][(j + readPosition) % InputQueueLength];
 					}
 
 					for(int j = 0; j < Taps2; ++j)
@@ -188,7 +190,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps2; ++j)
 					{
-						previousBuffer[i][j] = inputQueue[i][(samples - Taps2 + j + readPosition) % InputQueueLength];
+						previousBuffer[i][j] = inputQueue[i][(readPosition + samples - Taps2 + j) % InputQueueLength];
 					}
 				}
 
@@ -200,7 +202,7 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps4>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = samples * sizeof(float);
-
+#ifndef STATIC_BUFFERS
 				if(lastFrameSize != samples || oversamplingChanged)
 				{
 					reallocateBuffer(dryBuffer, HalfTaps + samples);
@@ -209,7 +211,7 @@ namespace WaveSabreCore
 					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + samples));
 					oversamplingChanged = false;
 				}
-
+#endif
 				for(int i = 0; i < 2; ++i)
 				{
 					// Fill scratch buffer for unprocessed signal.
@@ -218,7 +220,7 @@ namespace WaveSabreCore
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
 					for(int j = 0; j < samples; ++j)
 					{
-						dryBuffer[i][HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
+						dryBuffer[i][j + HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
 					}
 
 					// Create oversampled source signal with zero stuffing.
@@ -247,7 +249,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps4; ++j)
 					{
-						previousBuffer[i][j] = inputQueue[i][(samples - Taps4 + j + readPosition) % InputQueueLength];
+						previousBuffer[i][j] = inputQueue[i][(readPosition + samples - Taps4 + j) % InputQueueLength];
 					}
 				}
 
@@ -270,7 +272,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*2; ++j)
 					{
-						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse2, Taps2, j);
+						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse2, j, Taps2);
 					}
 
 					// Decimate the bandlimited signal for output.
@@ -291,7 +293,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*4 + Taps4; ++j)
 					{
-						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse4, Taps4, j);
+						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse4, j, Taps4);
 					}
 
 					// Decimate the bandlimited signal for output.
