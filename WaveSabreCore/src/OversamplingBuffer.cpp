@@ -126,7 +126,18 @@ namespace WaveSabreCore
 		}
 	}
 
-	void OversamplingBuffer::upsampleFrom(float** input, int samples)
+	void OversamplingBuffer::submitSamples(float** input, const int count)
+	{
+		for(int i = 0; i < count; ++i)
+		{
+			inputQueue[0][(i + writePosition) % InputQueueLength] = input[0][i];
+			inputQueue[1][(i + writePosition) % InputQueueLength] = input[1][i];
+		}
+		
+		writePosition += count;
+	}
+
+	void OversamplingBuffer::upsample(const int samples)
 	{
 		switch(oversampling)
 		{
@@ -151,7 +162,10 @@ namespace WaveSabreCore
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					memcpy(dryBuffer[i] + HalfTaps, input[i], CurrentCopyBytes);
+					for(int j = 0; j < samples; ++j)
+					{
+						dryBuffer[i][HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
+					}
 
 					for(int j = 0; j < Taps2; ++j)
 					{
@@ -161,7 +175,7 @@ namespace WaveSabreCore
 					for(int j = 0; j < samples; ++j)
 					{
 						const int offset = Taps2 + j;
-						upsamplingBuffer[i][offset * 2] = input[i][j];
+						upsamplingBuffer[i][offset * 2] = inputQueue[i][(j + readPosition) % InputQueueLength];
 						upsamplingBuffer[i][offset * 2 + 1] = 0.0f;
 					}
 
@@ -174,7 +188,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps2; ++j)
 					{
-						previousBuffer[i][j] = input[i][samples - Taps2 + j];
+						previousBuffer[i][j] = inputQueue[i][(samples - Taps2 + j + readPosition) % InputQueueLength];
 					}
 				}
 
@@ -202,7 +216,10 @@ namespace WaveSabreCore
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					memcpy(dryBuffer[i] + HalfTaps, input[i], CurrentCopyBytes);
+					for(int j = 0; j < samples; ++j)
+					{
+						dryBuffer[i][HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
+					}
 
 					// Create oversampled source signal with zero stuffing.
 					for(int j = 0; j < Taps4; ++j)
@@ -215,7 +232,7 @@ namespace WaveSabreCore
 					for(int j = 0; j < samples; ++j)
 					{
 						const int offset = Taps4 + j;
-						upsamplingBuffer[i][offset*4]   = input[i][j];
+						upsamplingBuffer[i][offset*4]   = inputQueue[i][(j + readPosition) % InputQueueLength];
 						upsamplingBuffer[i][offset*4+1] = 0.0f;
 						upsamplingBuffer[i][offset*4+2] = 0.0f;
 						upsamplingBuffer[i][offset*4+3] = 0.0f;
@@ -230,7 +247,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps4; ++j)
 					{
-						previousBuffer[i][j] = input[i][samples - Taps4 + j];
+						previousBuffer[i][j] = inputQueue[i][(samples - Taps4 + j + readPosition) % InputQueueLength];
 					}
 				}
 
@@ -239,6 +256,7 @@ namespace WaveSabreCore
 		}
 		
 		lastFrameSize = samples;
+		readPosition += samples;
 	}
 
 	void OversamplingBuffer::downsampleTo(float** output)
