@@ -30,14 +30,11 @@ namespace WaveSabreCore
 
 		const float inputGainScalar  = Helpers::DbToScalar(inputGain);
 		const float outputGainScalar = Helpers::DbToScalar(outputGain);
-		const float param1 =   4.0f * (even * even);
+		const float param1 =  4.0f * (even * even);
 		const float param2 =  10.0f * (twist * twist);
 		const float param3 = 100.0f * (fold * fold);
 		const float param4 =  20.0f * saturation;
 		const float param5 =  clip;
-
-		// TODO: Everything will fail horribly if numSamples is less than width of the FIR kernel,
-		// i.e. ASIO latency lower than 64 samples for 2x, or lower than 128 samples for 4x.
 
 		switch(oversampling)
 		{
@@ -123,8 +120,8 @@ namespace WaveSabreCore
 		// Apply sine function fold wave shaping.
 		float twist = even;
 		if(p2 > 0.0f)
-			twist = Helpers::Mix(even,
-                                 static_cast<float>(Helpers::FastSin(even * Helpers::Mix(1.0f, TwoPi, p2))),
+			twist = Helpers::Mix(twist,
+                                 static_cast<float>(Helpers::FastSin(twist * Helpers::Mix(1.0f, TwoPi, p2))),
                                  Helpers::Clamp(p2, 0.0f, 1.0f));
 		
 		// Apply foldback distortion.
@@ -132,9 +129,8 @@ namespace WaveSabreCore
 		if(p3 > 0.0f)
 		{
 			fold *= (1.0f + p3);
-			// TODO: this conditional not strictly needed, maybe faster?
 			if(fold > 1.0f || fold < -1.0f)
-				fold = fabs(fabs(fmod(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
+				fold = fabsf(fabsf(fmodf(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
 		}
 
 		// Apply odd harmonics saturation using tanh function.
@@ -151,8 +147,7 @@ namespace WaveSabreCore
 			}
 			else
 			{
-				static const float e = 2.71828183f;
-				const float exp = Helpers::PowF(e, exponent);
+				const float exp = Helpers::PowF(M_E, exponent);
 				tanh = (exp - 1.0f) / (exp + 1.0f);
 				tanh = Helpers::Mix(fold, tanh, Helpers::Clamp(p4, 0.0f, 1.0f));
 			}
@@ -163,7 +158,7 @@ namespace WaveSabreCore
 		if(p5 > 0.0f)
 		{
 			// Clip to -6dB at maximum setting.
-			const float h = Helpers::Mix(1.0f, 0.5f, sqrt(p5));
+			const float h = Helpers::Mix(1.0f, 0.5f, sqrtf(p5));
 			const float k = 1.0f + p5*p5*100.0f;
 			clip = Helpers::Clamp(clip*k, -h, h);
 		}

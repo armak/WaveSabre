@@ -125,6 +125,7 @@ namespace WaveSabreCore
 		const auto oversamplingInteger = (int)(oversampling);
 		switch(oversampling)
 		{
+			default:
 			case Oversampling::X1: return lastFrameSize;
 			case Oversampling::X2: return lastFrameSize*2 + Taps2;
 			case Oversampling::X4: return lastFrameSize*4 + Taps4*2;
