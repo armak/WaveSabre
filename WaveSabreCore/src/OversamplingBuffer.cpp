@@ -11,9 +11,6 @@
 
 namespace WaveSabreCore
 {
-	const double OversamplingBuffer::Pi = 3.141592653589793;
-	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
-
 	float convolveSIMD(const float* buffer, const float* kernel, const int bufferOffset, const int kernelSize)
 	{
 		__m256 samples = _mm256_setzero_ps();
@@ -36,6 +33,29 @@ namespace WaveSabreCore
 		const __m128 sum = _mm_add_ss(lo, hi);
 		return _mm_cvtss_f32(sum);
 	}
+
+	float OversamplingBuffer::RingBuffer::read(const size_t i) const
+	{
+		return buffer[(i + readPosition) % BufferLength];
+	}
+
+	void OversamplingBuffer::RingBuffer::write(const size_t i, const float v)
+	{
+		buffer[(i + writePosition) % BufferLength] = v;
+	}
+
+	void OversamplingBuffer::RingBuffer::incrementReadPosition(const size_t a)
+	{
+		readPosition = (readPosition + a) % BufferLength;
+	}
+
+	void OversamplingBuffer::RingBuffer::incrementWritePosition(const size_t a)
+	{
+		writePosition = (writePosition + a) % BufferLength;
+	}
+
+	const double OversamplingBuffer::Pi = 3.141592653589793;
+	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
 	OversamplingBuffer::OversamplingBuffer(const Oversampling factor) : oversampling(factor), oversamplingChanged(true), lastFrameSize(0)
 	{
@@ -128,18 +148,19 @@ namespace WaveSabreCore
 		}
 	}
 
-	void OversamplingBuffer::submitSamples(float** input, const int count)
+	void OversamplingBuffer::submitSamples(float** input, const int sampleCount)
 	{
-		for(int i = 0; i < count; ++i)
+		for(int i = 0; i < sampleCount; ++i)
 		{
-			inputQueue[0][(i + writePosition) % InputQueueLength] = input[0][i];
-			inputQueue[1][(i + writePosition) % InputQueueLength] = input[1][i];
+			inputBuffer[0].write(i, input[0][i]);
+			inputBuffer[1].write(i, input[1][i]);
 		}
 		
-		writePosition += count;
+		inputBuffer[0].incrementWritePosition(sampleCount);
+		inputBuffer[1].incrementWritePosition(sampleCount);
 	}
 
-	void OversamplingBuffer::upsample(const int samples)
+	void OversamplingBuffer::upsample(const int sampleCount)
 	{
 		switch(oversampling)
 		{
@@ -147,26 +168,26 @@ namespace WaveSabreCore
 			{
 				const int HalfTaps = Taps2>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
-				const int CurrentCopyBytes = samples * sizeof(float);
-#ifndef STATIC_BUFFERS
-				if(lastFrameSize != samples || oversamplingChanged)
+				const int CurrentCopyBytes = sampleCount * sizeof(float);
+
+				if(lastFrameSize != sampleCount || oversamplingChanged)
 				{
-					reallocateBuffer(dryBuffer, HalfTaps + samples);
-					reallocateBuffer(upsamplingBuffer, 2 * (Taps2 + samples));
-					reallocateBuffer(oversampleBuffer, 2 * (Taps2 + samples));
-					reallocateBuffer(bandlimitingBuffer, 2 * samples);
+					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
+					reallocateBuffer(upsamplingBuffer, 2 * (Taps2 + sampleCount));
+					reallocateBuffer(oversampleBuffer, 2 * (Taps2 + sampleCount));
+					reallocateBuffer(bandlimitingBuffer, 2 * sampleCount);
 					oversamplingChanged = false;
 				}
-#endif				
+
 				for(int i = 0; i < 2; ++i)
 				{
 					// Fill scratch buffer for unprocessed signal.
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < sampleCount; ++j)
 					{
-						(dryBuffer[i][j + HalfTaps]) = inputQueue[i][(j + readPosition) % InputQueueLength];
+						(dryBuffer[i][j + HalfTaps]) = inputBuffer[i].read(j);
 					}
 
 					for(int j = 0; j < Taps2; ++j)
@@ -174,15 +195,15 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][j * 2] = previousBuffer[i][j];
 						upsamplingBuffer[i][j * 2 + 1] = 0.0f;
 					}
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < sampleCount; ++j)
 					{
 						const int offset = Taps2 + j;
-						upsamplingBuffer[i][offset * 2] = inputQueue[i][(j + readPosition) % InputQueueLength];
+						upsamplingBuffer[i][offset * 2] = inputBuffer[i].read(j);
 						upsamplingBuffer[i][offset * 2 + 1] = 0.0f;
 					}
 
 					// Filter above original nyquist and waveshape.
-					for(int j = 0; j < samples*2 + Taps2; ++j)
+					for(int j = 0; j < sampleCount*2 + Taps2; ++j)
 					{
 						oversampleBuffer[i][j] = 2.0f * convolveSIMD(upsamplingBuffer[i], firResponse2, j, Taps2);
 					}
@@ -190,7 +211,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps2; ++j)
 					{
-						previousBuffer[i][j] = inputQueue[i][(readPosition + samples - Taps2 + j) % InputQueueLength];
+						previousBuffer[i][j] = inputBuffer[i].read(sampleCount - Taps2 + j);
 					}
 				}
 
@@ -201,26 +222,26 @@ namespace WaveSabreCore
 			{
 				const int HalfTaps = Taps4>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
-				const int CurrentCopyBytes = samples * sizeof(float);
-#ifndef STATIC_BUFFERS
-				if(lastFrameSize != samples || oversamplingChanged)
+				const int CurrentCopyBytes = sampleCount * sizeof(float);
+
+				if(lastFrameSize != sampleCount || oversamplingChanged)
 				{
-					reallocateBuffer(dryBuffer, HalfTaps + samples);
-					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + samples));
-					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + samples));
-					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + samples));
+					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
+					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + sampleCount));
+					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + sampleCount));
+					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + sampleCount));
 					oversamplingChanged = false;
 				}
-#endif
+
 				for(int i = 0; i < 2; ++i)
 				{
 					// Fill scratch buffer for unprocessed signal.
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < sampleCount; ++j)
 					{
-						dryBuffer[i][j + HalfTaps] = inputQueue[i][(j + readPosition) % InputQueueLength];
+						dryBuffer[i][j + HalfTaps] = inputBuffer[i].read(j);
 					}
 
 					// Create oversampled source signal with zero stuffing.
@@ -231,17 +252,17 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][j*4+2] = 0.0f;
 						upsamplingBuffer[i][j*4+3] = 0.0f;
 					}
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < sampleCount; ++j)
 					{
 						const int offset = Taps4 + j;
-						upsamplingBuffer[i][offset*4]   = inputQueue[i][(j + readPosition) % InputQueueLength];
+						upsamplingBuffer[i][offset*4]   = inputBuffer[i].read(j);
 						upsamplingBuffer[i][offset*4+1] = 0.0f;
 						upsamplingBuffer[i][offset*4+2] = 0.0f;
 						upsamplingBuffer[i][offset*4+3] = 0.0f;
 					}
 
 					// Filter above original nyquist and waveshape.
-					for(int j = 0; j < samples*4 + Taps4*2; ++j)
+					for(int j = 0; j < sampleCount*4 + Taps4*2; ++j)
 					{
 						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, j, Taps4);
 					}
@@ -249,7 +270,7 @@ namespace WaveSabreCore
 					// The last samples frum current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps4; ++j)
 					{
-						previousBuffer[i][j] = inputQueue[i][(readPosition + samples - Taps4 + j) % InputQueueLength];
+						previousBuffer[i][j] = inputBuffer[i].read(sampleCount - Taps4 + j);
 					}
 				}
 
@@ -257,8 +278,9 @@ namespace WaveSabreCore
 			}
 		}
 		
-		lastFrameSize = samples;
-		readPosition += samples;
+		lastFrameSize = sampleCount;
+		inputBuffer[0].incrementReadPosition(sampleCount);
+		inputBuffer[1].incrementReadPosition(sampleCount);
 	}
 
 	void OversamplingBuffer::downsampleTo(float** output)

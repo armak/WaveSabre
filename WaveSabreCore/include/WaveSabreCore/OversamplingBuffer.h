@@ -20,8 +20,8 @@ namespace WaveSabreCore
 		int getOversampleCount() const;
 		int getDelaySamples() const;
 
-		void submitSamples(float** input, const int count);
-		void upsample(const int samples);
+		void submitSamples(float** input, const int sampleCount);
+		void upsample(const int sampleCount);
 		void downsampleTo(float** output);
 
 		float& operator()(const size_t channel, const size_t index)
@@ -38,6 +38,21 @@ namespace WaveSabreCore
 		void createSincImpulse(float* result, const int taps, const double cutoff);
 		void reallocateBuffer(float* target[2], const size_t count);
 
+		class RingBuffer
+		{
+		public:
+			float read(const size_t i) const;
+			void write(const size_t i, const float v);
+			void incrementReadPosition(const size_t a);
+			void incrementWritePosition(const size_t a);
+
+		private:
+			static const int BufferLength = 65536;
+			float buffer[BufferLength] = {};
+			size_t readPosition = 0;
+			size_t writePosition = 0;
+		};
+
 		static const double Pi;
 		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
@@ -45,22 +60,13 @@ namespace WaveSabreCore
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
 
-		static const int InputQueueLength = 65536;
-		float inputQueue[2][InputQueueLength] = {};
-		int writePosition = 0;
-		int readPosition = 0;
-#ifdef STATIC_BUFFERS
-		float dryBuffer[2][4096] = {};
-		float upsamplingBuffer[2][4096] = {};
-		float oversampleBuffer[2][4096] = {};
-		float bandlimitingBuffer[2][4096] = {};
-#else
+		RingBuffer inputBuffer[2];
+
 		float* dryBuffer[2] = {nullptr, nullptr};
 		float* upsamplingBuffer[2] = {nullptr, nullptr};
 		float* oversampleBuffer[2] = {nullptr, nullptr};
 		float* bandlimitingBuffer[2] = {nullptr, nullptr};
-#endif
-		
+
 		float previousBuffer[2][Taps4] = {};
 
 		Oversampling oversampling;
