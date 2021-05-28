@@ -43,14 +43,15 @@ namespace WaveSabreCore
 		public:
 			float read(const size_t i) const;
 			void write(const size_t i, const float v);
-			void incrementReadPosition(const size_t a);
-			void incrementWritePosition(const size_t a);
+			void incrementReadOffset(const size_t a);
+			void incrementWriteOffset(const size_t a);
 
 		private:
 			static const int BufferLength = 65536;
+			static const int BufferMask = BufferLength - 1;
 			float buffer[BufferLength] = {};
-			size_t readPosition = 0;
-			size_t writePosition = 0;
+			size_t readOffset = 0;
+			size_t writeOffset = 0;
 		};
 
 		static const double Pi;

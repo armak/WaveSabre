@@ -36,22 +36,22 @@ namespace WaveSabreCore
 
 	float OversamplingBuffer::RingBuffer::read(const size_t i) const
 	{
-		return buffer[(i + readPosition) % BufferLength];
+		return buffer[(i + readOffset) & BufferMask];
 	}
 
 	void OversamplingBuffer::RingBuffer::write(const size_t i, const float v)
 	{
-		buffer[(i + writePosition) % BufferLength] = v;
+		buffer[(i + writeOffset) & BufferMask] = v;
 	}
 
-	void OversamplingBuffer::RingBuffer::incrementReadPosition(const size_t a)
+	void OversamplingBuffer::RingBuffer::incrementReadOffset(const size_t a)
 	{
-		readPosition = (readPosition + a) % BufferLength;
+		readOffset = (readOffset + a) & BufferMask;
 	}
 
-	void OversamplingBuffer::RingBuffer::incrementWritePosition(const size_t a)
+	void OversamplingBuffer::RingBuffer::incrementWriteOffset(const size_t a)
 	{
-		writePosition = (writePosition + a) % BufferLength;
+		writeOffset = (writeOffset + a) & BufferMask;
 	}
 
 	const double OversamplingBuffer::Pi = 3.141592653589793;
@@ -156,8 +156,8 @@ namespace WaveSabreCore
 			inputBuffer[1].write(i, input[1][i]);
 		}
 		
-		inputBuffer[0].incrementWritePosition(sampleCount);
-		inputBuffer[1].incrementWritePosition(sampleCount);
+		inputBuffer[0].incrementWriteOffset(sampleCount);
+		inputBuffer[1].incrementWriteOffset(sampleCount);
 	}
 
 	void OversamplingBuffer::upsample(const int sampleCount)
@@ -279,8 +279,8 @@ namespace WaveSabreCore
 		}
 		
 		lastFrameSize = sampleCount;
-		inputBuffer[0].incrementReadPosition(sampleCount);
-		inputBuffer[1].incrementReadPosition(sampleCount);
+		inputBuffer[0].incrementReadOffset(sampleCount);
+		inputBuffer[1].incrementReadOffset(sampleCount);
 	}
 
 	void OversamplingBuffer::downsampleTo(float** output)
