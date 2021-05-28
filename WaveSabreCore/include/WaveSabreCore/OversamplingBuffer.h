@@ -19,7 +19,9 @@ namespace WaveSabreCore
 		void setOversamplingFactor(const Oversampling factor);
 		int getOversampleCount() const;
 		int getDelaySamples() const;
-		void upsampleFrom(float** input, int samples);
+
+		void submitSamples(float** input, const int count);
+		void upsample(const int samples);
 		void downsampleTo(float** output);
 
 		float& operator()(const size_t channel, const size_t index)
@@ -42,6 +44,11 @@ namespace WaveSabreCore
 		static const int Taps4 = 128;
 		float firResponse2[Taps2];
 		float firResponse4[Taps4];
+
+		static const int InputQueueLength = 65536;
+		float inputQueue[2][InputQueueLength] = {};
+		int writePosition = 0;
+		int readPosition = 0;
 
 		float* dryBuffer[2] = {nullptr, nullptr};
 		float* upsamplingBuffer[2] = {nullptr, nullptr};

@@ -70,7 +70,8 @@ namespace WaveSabreCore
 			case OversamplingBuffer::Oversampling::X2:
 			case OversamplingBuffer::Oversampling::X4:
 			{
-				buffer.upsampleFrom(inputs, numSamples);
+				buffer.submitSamples(inputs, numSamples);
+				buffer.upsample(numSamples);
 
 				const auto oversampleCount = buffer.getOversampleCount();
 
