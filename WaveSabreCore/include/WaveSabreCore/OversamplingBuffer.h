@@ -47,7 +47,8 @@ namespace WaveSabreCore
 			void incrementWriteOffset(const size_t a);
 
 		private:
-			static const int BufferLength = 65536;
+			// Buffer length must be power of 2.
+			static const int BufferLength = 0x10000;
 			static const int BufferMask = BufferLength - 1;
 			float buffer[BufferLength] = {};
 			size_t readOffset = 0;

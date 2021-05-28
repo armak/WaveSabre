@@ -65,7 +65,6 @@ namespace WaveSabreCore
 
 	OversamplingBuffer::~OversamplingBuffer()
 	{
-#ifndef STATIC_BUFFERS
 		if(dryBuffer[0]) delete[] dryBuffer[0];
 		if(dryBuffer[1]) delete[] dryBuffer[1];
 		if(upsamplingBuffer[0]) delete[] upsamplingBuffer[0];
@@ -74,7 +73,6 @@ namespace WaveSabreCore
 		if(oversampleBuffer[1]) delete[] oversampleBuffer[1];
 		if(bandlimitingBuffer[0]) delete[] bandlimitingBuffer[0];
 		if(bandlimitingBuffer[1]) delete[] bandlimitingBuffer[1];
-#endif
 	}
 
 	void OversamplingBuffer::createSincImpulse(float* result, const int taps, const double cutoff)
