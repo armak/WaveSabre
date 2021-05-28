@@ -14,12 +14,12 @@ namespace WaveSabreCore
 	const double OversamplingBuffer::Pi = 3.141592653589793;
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
-	float convolveSIMD(const float* buffer, const float* kernel, const int length, const int index)
+	float convolveSIMD(const float* buffer, const float* kernel, const int bufferOffset, const int kernelSize)
 	{
 		__m256 samples = _mm256_setzero_ps();
-		for (int k = 0; k < length; k += 8)
+		for(int k = 0; k < kernelSize; k += 8)
 		{
-			const __m256 bufferVector = _mm256_loadu_ps(&(buffer[index + k]));
+			const __m256 bufferVector = _mm256_loadu_ps(&(buffer[bufferOffset + k]));
 			const __m256 kernelVector = _mm256_load_ps(&(kernel[k]));
 			samples = _mm256_add_ps(samples, _mm256_mul_ps(bufferVector, kernelVector));
 		}
@@ -168,7 +168,7 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < samples*2 + Taps2; ++j)
 					{
-						oversampleBuffer[i][j] = 2.0f * convolveSIMD(upsamplingBuffer[i], firResponse2, Taps2, j);
+						oversampleBuffer[i][j] = 2.0f * convolveSIMD(upsamplingBuffer[i], firResponse2, j, Taps2);
 					}
 
 					// The last samples frum current buffer need to be copied for the next round.
@@ -224,7 +224,7 @@ namespace WaveSabreCore
 					// Filter above original nyquist and waveshape.
 					for(int j = 0; j < samples*4 + Taps4*2; ++j)
 					{
-						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, Taps4, j);
+						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, j, Taps4);
 					}
 
 					// The last samples frum current buffer need to be copied for the next round.
