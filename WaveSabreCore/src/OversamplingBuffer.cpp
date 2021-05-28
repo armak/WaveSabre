@@ -7,21 +7,40 @@
 #endif
 
 #include <string.h>
-#include <immintrin.h>
 
 namespace WaveSabreCore
 {
 	const double OversamplingBuffer::Pi = 3.141592653589793;
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
-	float convolveSIMD(const float* buffer, const float* kernel, const int bufferOffset, const int kernelSize)
+	float convolveSIMD(const __m256* buffer, const __m256* kernel, const int bufferOffset, const int kernelSize)
 	{
 		__m256 samples = _mm256_setzero_ps();
-		for(int k = 0; k < kernelSize; k += 8)
+		for(int i = 0; i < kernelSize>>3; ++i)
+		{
+			samples = _mm256_add_ps(samples, _mm256_mul_ps(buffer[i], kernel[i]));
+		}
+
+		// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
+		const __m128 hiQuad = _mm256_extractf128_ps(samples, 1);
+		const __m128 loQuad = _mm256_castps256_ps128(samples);
+		const __m128 sumQuad = _mm_add_ps(loQuad, hiQuad);
+		const __m128 loDual = sumQuad;
+		const __m128 hiDual = _mm_movehl_ps(sumQuad, sumQuad);
+		const __m128 sumDual = _mm_add_ps(loDual, hiDual);
+		const __m128 lo = sumDual;
+		const __m128 hi = _mm_shuffle_ps(sumDual, sumDual, 0x1);
+		const __m128 sum = _mm_add_ss(lo, hi);
+		return _mm_cvtss_f32(sum);
+	}
+
+	float convolveSIMD2(const float* buffer, const __m256* kernel, const int bufferOffset, const int kernelSize)
+	{
+		__m256 samples = _mm256_setzero_ps();
+		for (int k = 0; k < kernelSize; k += 8)
 		{
 			const __m256 bufferVector = _mm256_loadu_ps(&(buffer[bufferOffset + k]));
-			const __m256 kernelVector = _mm256_load_ps(&(kernel[k]));
-			samples = _mm256_add_ps(samples, _mm256_mul_ps(bufferVector, kernelVector));
+			samples = _mm256_add_ps(samples, _mm256_mul_ps(bufferVector, kernel[k >> 3]));
 		}
 
 		// https://stackoverflow.com/questions/13219146/how-to-sum-m256-horizontally
@@ -55,43 +74,41 @@ namespace WaveSabreCore
 		if(bandlimitingBuffer[1]) delete[] bandlimitingBuffer[1];
 	}
 
-	void OversamplingBuffer::createSincImpulse(float* result, const int taps, const double cutoff)
+	void OversamplingBuffer::createSincImpulse(__m256* result, const int taps, const double cutoff)
 	{
 		const double M = static_cast<double>(taps) - 1.0;
 
 		// Generate sinc impulse with a window.
-		for(int i = 0; i < taps; ++i)
+		for(int i = 0; i < taps; i += 8)
 		{
-			const double d = static_cast<double>(i);
-			double impulse = 0.0;
-			if(d == M*0.5)
+			__m256 kernelVector = _mm256_setzero_ps();
+			for (int j = 0; j < 8; ++j)
 			{
-				impulse = 2.0*cutoff;
-			}
-			else
-			{
-				double n = d - M*0.5;
-				impulse = Helpers::FastSin(2.0*Pi*cutoff*n) / (Pi*n);
+				const double d = static_cast<double>(i + j);
+				double impulse = 0.0;
+				if (d == M * 0.5)
+				{
+					impulse = 2.0 * cutoff;
+				}
+				else
+				{
+					double n = d - M * 0.5;
+					impulse = Helpers::FastSin(2.0 * Pi * cutoff * n) / (Pi * n);
+				}
+
+				// Blackman window.
+				const double window = 0.42 - (0.5 * Helpers::FastCos(2.0 * Pi * d / M)) + (0.08 * Helpers::FastCos(4.0 * Pi * d / M));
+				kernelVector.m256_f32[j] = static_cast<float>(impulse * window);
 			}
 
-			// Blackman window.
-			const double window = 0.42 - (0.5*Helpers::FastCos(2.0*Pi*d/M)) + (0.08*Helpers::FastCos(4.0*Pi*d/M));
-			result[i] = static_cast<float>(impulse * window);
+			result[i>>3] = kernelVector;
 		}
 
-#ifdef _DEBUG
+#if 0
 		float sum = 0.0f;
 		for(int i = 0; i < taps; ++i) sum += result[i];
 		assert(fabsf(1.0f - sum) < 0.001f);
 #endif
-	}
-
-	void OversamplingBuffer::reallocateBuffer(float* target[2], const size_t count)
-	{
-		if(target[0]) delete[] target[0];
-		if(target[1]) delete[] target[1];
-		target[0] = new float[count]();
-		target[1] = new float[count]();
 	}
 
 	void OversamplingBuffer::setOversamplingFactor(const Oversampling factor)
@@ -138,10 +155,10 @@ namespace WaveSabreCore
 
 				if(lastFrameSize != samples || oversamplingChanged)
 				{
-					reallocateBuffer(dryBuffer, HalfTaps + samples);
-					reallocateBuffer(upsamplingBuffer, 2 * (Taps2 + samples));
-					reallocateBuffer(oversampleBuffer, 2 * (Taps2 + samples));
-					reallocateBuffer(bandlimitingBuffer, 2 * samples);
+					reallocateBuffer<float>(dryBuffer, HalfTaps + samples);
+					reallocateBuffer<__m256>(upsamplingBuffer, (2 * (Taps2 + samples))>>3);
+					reallocateBuffer<float>(oversampleBuffer, 2 * (Taps2 + samples));
+					reallocateBuffer<float>(bandlimitingBuffer, 2 * samples);
 					oversamplingChanged = false;
 				}
 
@@ -153,16 +170,13 @@ namespace WaveSabreCore
 					memcpy(dryBuffer[i], previousBuffer[i] + HalfTaps, PreviousCopyBytes);
 					memcpy(dryBuffer[i] + HalfTaps, input[i], CurrentCopyBytes);
 
-					for(int j = 0; j < Taps2; ++j)
+					for(int j = 0; j < Taps2; j += 4)
 					{
-						upsamplingBuffer[i][j * 2] = previousBuffer[i][j];
-						upsamplingBuffer[i][j * 2 + 1] = 0.0f;
+						upsamplingBuffer[i][j] = _mm256_setr_ps(previousBuffer[i][j], 0.0f, previousBuffer[i][j + 1], 0.0f, previousBuffer[i][j + 2], 0.0f, previousBuffer[i][j + 3], 0.0f);
 					}
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < samples; j += 4)
 					{
-						const int offset = Taps2 + j;
-						upsamplingBuffer[i][offset * 2] = input[i][j];
-						upsamplingBuffer[i][offset * 2 + 1] = 0.0f;
+						upsamplingBuffer[i][j + (Taps2>>2)] = _mm256_setr_ps(input[i][j], 0.0f, input[i][j + 1], 0.0f, input[i][j + 2], 0.0f, input[i][j + 3], 0.0f);
 					}
 
 					// Filter above original nyquist and waveshape.
@@ -189,10 +203,10 @@ namespace WaveSabreCore
 
 				if(lastFrameSize != samples || oversamplingChanged)
 				{
-					reallocateBuffer(dryBuffer, HalfTaps + samples);
-					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + samples));
-					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + samples));
-					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + samples));
+					reallocateBuffer<float>(dryBuffer, HalfTaps + samples);
+					reallocateBuffer<__m256>(upsamplingBuffer, (4 * (Taps4 * 2 + samples))>>3);
+					reallocateBuffer<float>(oversampleBuffer, 4 * (Taps4 * 2 + samples));
+					reallocateBuffer<float>(bandlimitingBuffer, 4 * (Taps4 + samples));
 					oversamplingChanged = false;
 				}
 
@@ -205,20 +219,13 @@ namespace WaveSabreCore
 					memcpy(dryBuffer[i] + HalfTaps, input[i], CurrentCopyBytes);
 
 					// Create oversampled source signal with zero stuffing.
-					for(int j = 0; j < Taps4; ++j)
+					for(int j = 0; j < Taps4; j += 2)
 					{
-						upsamplingBuffer[i][j*4]   = previousBuffer[i][j];
-						upsamplingBuffer[i][j*4+1] = 0.0f;
-						upsamplingBuffer[i][j*4+2] = 0.0f;
-						upsamplingBuffer[i][j*4+3] = 0.0f;
+						upsamplingBuffer[i][j] = _mm256_setr_ps(previousBuffer[i][j], 0.0f, 0.0f, 0.0f, previousBuffer[i][j + 1], 0.0f, 0.0f, 0.0f);
 					}
-					for(int j = 0; j < samples; ++j)
+					for(int j = 0; j < samples; j += 2)
 					{
-						const int offset = Taps4 + j;
-						upsamplingBuffer[i][offset*4]   = input[i][j];
-						upsamplingBuffer[i][offset*4+1] = 0.0f;
-						upsamplingBuffer[i][offset*4+2] = 0.0f;
-						upsamplingBuffer[i][offset*4+3] = 0.0f;
+						upsamplingBuffer[i][j + HalfTaps] = _mm256_setr_ps(input[i][j], 0.0f, 0.0f, 0.0f, input[i][j + 1], 0.0f, 0.0f, 0.0f);
 					}
 
 					// Filter above original nyquist and waveshape.
@@ -252,7 +259,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*2; ++j)
 					{
-						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse2, Taps2, j);
+						bandlimitingBuffer[i][j] = convolveSIMD2(oversampleBuffer[i], firResponse2, Taps2, j);
 					}
 
 					// Decimate the bandlimited signal for output.
@@ -273,7 +280,7 @@ namespace WaveSabreCore
 					// Band limit to original nyquist.
 					for(int j = 0; j < lastFrameSize*4 + Taps4; ++j)
 					{
-						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse4, Taps4, j);
+						bandlimitingBuffer[i][j] = convolveSIMD2(oversampleBuffer[i], firResponse4, Taps4, j);
 					}
 
 					// Decimate the bandlimited signal for output.

@@ -1,6 +1,8 @@
 #ifndef __WAVESABRECORE_OVERSAMPLINGBUFFER_H__
 #define __WAVESABRECORE_OVERSAMPLINGBUFFER_H__
 
+#include <immintrin.h>
+
 namespace WaveSabreCore
 {
 	class OversamplingBuffer
@@ -33,18 +35,25 @@ namespace WaveSabreCore
 		}
 
 	private:
-		void createSincImpulse(float* result, const int taps, const double cutoff);
-		void reallocateBuffer(float* target[2], const size_t count);
+		void createSincImpulse(__m256* result, const int taps, const double cutoff);
+		template<typename T>
+		void reallocateBuffer(T* target[2], const size_t count)
+		{
+			if(target[0]) delete[] target[0];
+			if(target[1]) delete[] target[1];
+			target[0] = new T[count]();
+			target[1] = new T[count]();
+		}
 
 		static const double Pi;
 		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
 		static const int Taps4 = 128;
-		float firResponse2[Taps2];
-		float firResponse4[Taps4];
+		__m256 firResponse2[Taps2>>3];
+		__m256 firResponse4[Taps4>>3];
 
 		float* dryBuffer[2] = {nullptr, nullptr};
-		float* upsamplingBuffer[2] = {nullptr, nullptr};
+		__m256* upsamplingBuffer[2] = {nullptr, nullptr};
 		float* oversampleBuffer[2] = {nullptr, nullptr};
 		float* bandlimitingBuffer[2] = {nullptr, nullptr};
 		
