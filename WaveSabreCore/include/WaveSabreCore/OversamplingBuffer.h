@@ -55,7 +55,6 @@ namespace WaveSabreCore
 			size_t writeOffset = 0;
 		};
 
-		static const double Pi;
 		static const double FirCutoffRatio;
 		static const int Taps2 = 64;
 		static const int Taps4 = 128;
