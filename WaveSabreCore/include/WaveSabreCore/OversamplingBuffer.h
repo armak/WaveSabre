@@ -16,7 +16,7 @@ namespace WaveSabreCore
 		OversamplingBuffer() = delete;
 		OversamplingBuffer(const Oversampling factor);
 		virtual ~OversamplingBuffer();
-		void setOversamplingFactor(const Oversampling factor);
+		void setOversampling(const Oversampling setting);
 		int getOversampleCount() const;
 		int getDelaySamples() const;
 
@@ -73,6 +73,13 @@ namespace WaveSabreCore
 		Oversampling oversampling;
 		bool oversamplingChanged;
 		int lastFrameSize;
+
+#if _DEBUG
+		int lastDryAllocationSize = 0;
+		int lastUpsampleAllocationSize = 0;
+		int lastOversampleAllocationSize = 0;
+		int lastBandlimitAllocationSize = 0;
+#endif;
 	};
 }
 

@@ -1,12 +1,10 @@
 #include <WaveSabreCore/OversamplingBuffer.h>
 #include <WaveSabreCore/Helpers.h>
 
-#ifdef _DEBUG
-#include <cassert>
-#endif
-
 #include <string.h>
 #include <immintrin.h>
+
+#include <cassert>
 
 namespace WaveSabreCore
 {
@@ -112,10 +110,10 @@ namespace WaveSabreCore
 		target[1] = new float[count]();
 	}
 
-	void OversamplingBuffer::setOversamplingFactor(const Oversampling factor)
+	void OversamplingBuffer::setOversampling(const Oversampling setting)
 	{
-		oversamplingChanged = (factor != oversampling && !oversamplingChanged);
-		oversampling = factor;
+		if(setting != oversampling) oversamplingChanged = true;
+		oversampling = setting;
 	}
 
 	int OversamplingBuffer::getOversampleCount() const
@@ -172,12 +170,21 @@ namespace WaveSabreCore
 					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
 					reallocateBuffer(upsamplingBuffer, 2 * (Taps2 + sampleCount));
 					reallocateBuffer(oversampleBuffer, 2 * (Taps2 + sampleCount));
-					reallocateBuffer(bandlimitingBuffer, 2 * sampleCount);
+					reallocateBuffer(bandlimitingBuffer, 2 * sampleCount + 1);
 					oversamplingChanged = false;
+
+#if _DEBUG
+					lastDryAllocationSize = Taps2 + sampleCount;
+					lastUpsampleAllocationSize = 2 * (Taps2 + sampleCount);
+					lastOversampleAllocationSize = 2 * (Taps2 + sampleCount);
+					lastBandlimitAllocationSize = 2 * sampleCount + 1;
+#endif
 				}
 
 				for(int i = 0; i < 2; ++i)
 				{
+					assert(HalfTaps + sampleCount <= lastDryAllocationSize);
+
 					// Fill scratch buffer for unprocessed signal.
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
@@ -186,6 +193,8 @@ namespace WaveSabreCore
 					{
 						(dryBuffer[i][j + HalfTaps]) = inputBuffer[i].read(j);
 					}
+
+					assert(Taps2 + sampleCount <= lastUpsampleAllocationSize);
 
 					for(int j = 0; j < Taps2; ++j)
 					{
@@ -198,6 +207,9 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][offset * 2] = inputBuffer[i].read(j);
 						upsamplingBuffer[i][offset * 2 + 1] = 0.0f;
 					}
+
+					assert(sampleCount*2 + Taps2 + Taps2 <= lastUpsampleAllocationSize);
+					assert(sampleCount*2 + Taps2 + Taps2 <= lastOversampleAllocationSize);
 
 					// Filter above original nyquist.
 					// This buffer is now fit for performing nonlinear operations with.
@@ -221,18 +233,27 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps4>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = sampleCount * sizeof(float);
-
+				
 				if(lastFrameSize != sampleCount || oversamplingChanged)
 				{
 					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
 					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + sampleCount));
 					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + sampleCount));
-					reallocateBuffer(bandlimitingBuffer, 4 * (Taps4 + sampleCount));
+					reallocateBuffer(bandlimitingBuffer, 4 * sampleCount + Taps4 + 1);
 					oversamplingChanged = false;
-				}
 
+#if _DEBUG
+					lastDryAllocationSize = HalfTaps + sampleCount;
+					lastUpsampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
+					lastOversampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
+					lastBandlimitAllocationSize = 4 * sampleCount + Taps4 + 1;
+#endif
+				}
+				
 				for(int i = 0; i < 2; ++i)
 				{
+					assert(HalfTaps + sampleCount <= lastDryAllocationSize);
+
 					// Fill scratch buffer for unprocessed signal.
 					// We can't just use the input signal directly, because oversampling causes a delay
 					// for the processed signal, so we need to delay the dry as well.
@@ -241,6 +262,8 @@ namespace WaveSabreCore
 					{
 						dryBuffer[i][j + HalfTaps] = inputBuffer[i].read(j);
 					}
+
+					assert(Taps4 + sampleCount <= lastUpsampleAllocationSize);
 
 					// Create oversampled source signal with zero stuffing.
 					for(int j = 0; j < Taps4; ++j)
@@ -258,6 +281,9 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][offset*4+2] = 0.0f;
 						upsamplingBuffer[i][offset*4+3] = 0.0f;
 					}
+
+					assert(sampleCount*4 + Taps4*2 + Taps4 <= lastUpsampleAllocationSize);
+					assert(sampleCount*4 + Taps4*2 + Taps4 <= lastOversampleAllocationSize);
 
 					// Filter above original nyquist.
 					// This buffer is now fit for performing nonlinear operations with.
@@ -290,11 +316,16 @@ namespace WaveSabreCore
 			{
 				for(int i = 0; i < 2; ++i)
 				{
+					assert(lastFrameSize*2 <= lastOversampleAllocationSize);
+					assert(lastFrameSize*2 <= lastBandlimitAllocationSize);
+
 					// Band limit to original nyquist.
-					for(int j = 0; j < lastFrameSize*2; ++j)
+					for(int j = 0; j < lastFrameSize*2 + 1; ++j)
 					{
 						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse2, j, Taps2);
 					}
+
+					assert(lastFrameSize*2 + 1 <= lastBandlimitAllocationSize);
 
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < lastFrameSize; ++j)
@@ -311,11 +342,16 @@ namespace WaveSabreCore
 			{
 				for(int i = 0; i < 2; ++i)
 				{
+					assert(lastFrameSize*4 + Taps4 <= lastOversampleAllocationSize);
+					assert(lastFrameSize*4 + Taps4 <= lastBandlimitAllocationSize);
+
 					// Band limit to original nyquist.
-					for(int j = 0; j < lastFrameSize*4 + Taps4; ++j)
+					for(int j = 0; j < lastFrameSize*4 + Taps4 + 1; ++j)
 					{
 						bandlimitingBuffer[i][j] = convolveSIMD(oversampleBuffer[i], firResponse4, j, Taps4);
 					}
+
+					assert(lastFrameSize*4 + Taps4 + 1 <= lastBandlimitAllocationSize);
 
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < lastFrameSize; ++j)
