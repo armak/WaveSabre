@@ -3,7 +3,6 @@
 
 #ifdef _DEBUG
 #include <cassert>
-#include <cmath>
 #endif
 
 #include <string.h>
@@ -54,7 +53,6 @@ namespace WaveSabreCore
 		writeOffset = (writeOffset + a) & BufferMask;
 	}
 
-	const double OversamplingBuffer::Pi = 3.141592653589793;
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
 	OversamplingBuffer::OversamplingBuffer(const Oversampling factor) : oversampling(factor), oversamplingChanged(true), lastFrameSize(0)
@@ -91,11 +89,11 @@ namespace WaveSabreCore
 			else
 			{
 				double n = d - M*0.5;
-				impulse = Helpers::FastSin(2.0*Pi*cutoff*n) / (Pi*n);
+				impulse = Helpers::FastSin(2.0*M_PI*cutoff*n) / (M_PI*n);
 			}
 
 			// Blackman window.
-			const double window = 0.42 - (0.5*Helpers::FastCos(2.0*Pi*d/M)) + (0.08*Helpers::FastCos(4.0*Pi*d/M));
+			const double window = 0.42 - (0.5*Helpers::FastCos(2.0*M_PI*d/M)) + (0.08*Helpers::FastCos(4.0*M_PI*d/M));
 			result[i] = static_cast<float>(impulse * window);
 		}
 
@@ -201,7 +199,8 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][offset * 2 + 1] = 0.0f;
 					}
 
-					// Filter above original nyquist and waveshape.
+					// Filter above original nyquist.
+					// This buffer is now fit for performing nonlinear operations with.
 					for(int j = 0; j < sampleCount*2 + Taps2; ++j)
 					{
 						oversampleBuffer[i][j] = 2.0f * convolveSIMD(upsamplingBuffer[i], firResponse2, j, Taps2);
@@ -260,7 +259,8 @@ namespace WaveSabreCore
 						upsamplingBuffer[i][offset*4+3] = 0.0f;
 					}
 
-					// Filter above original nyquist and waveshape.
+					// Filter above original nyquist.
+					// This buffer is now fit for performing nonlinear operations with.
 					for(int j = 0; j < sampleCount*4 + Taps4*2; ++j)
 					{
 						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, j, Taps4);
@@ -320,7 +320,7 @@ namespace WaveSabreCore
 					// Decimate the bandlimited signal for output.
 					for(int j = 0; j  < lastFrameSize; ++j)
 					{
-						// Sample with +1 offset to compensate for half a sample delay.
+						// Sample with +1 offset to compensate for a quarter sample delay.
 						output[i][j] = bandlimitingBuffer[i][j*4 + Taps4 + 1];
 					}
 				}
