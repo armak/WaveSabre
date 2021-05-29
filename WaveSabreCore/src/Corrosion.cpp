@@ -181,7 +181,7 @@ namespace WaveSabreCore
 		case ParamIndices::Oversampling:
 		{
 			oversampling = (OversamplingBuffer::Oversampling)(int)(value * 2.0f);
-			buffer.setOversamplingFactor(oversampling);
+			buffer.setOversampling(oversampling);
 			break;
 		}
 		case ParamIndices::DCBlocking: dcBlocking = (DCBlock)(int)(value); break;
