@@ -9,55 +9,78 @@ namespace WaveSabreCore
 
 	void Orbiter::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
+		static const double Nyquist = Helpers::CurrentSampleRate * 0.5;
 		static const double OscillatorTrigTerm = 1.0 / Helpers::CurrentSampleRate * 2.0 * M_PI;
-		const double spreadPhase = spread * M_PI_2;
-		const float biasTerm = -0.5f + bias;
-		const double oversampleFactor = 1.0 / buffer.getOversamplingFactor();
 
-		buffer.submitSamples(inputs, numSamples);
-		buffer.upsample(numSamples);
+		// Map input parameters to better ranges.
+		// TODO: could do this only when receiving the updated values.
+		const double spreadPhase = spread * Helpers::Mix(M_PI_2, M_PI_4, -1.0f + 2.0f * Helpers::Clamp(rectification, 0.5f, 1.0f));
+		const float biasTerm = (-0.5f + bias)*1.25f;
+		const float rectifyAmp = 1.0f + rectification;
 
-		const auto oversampleCount = buffer.getOversampleCount();
+		const double maxPartial = 3.0 + 49.0 * shape * shape;
+		double particlWhole;
+		double partialFract = modf(maxPartial, &particlWhole);
 
-		for(int j = 0; j < oversampleCount; ++j)
+		switch(modulator)
 		{
-			double oscillatorInLeft  = oscillatorPhase[0] * OscillatorTrigTerm;
-			double oscillatorInRight = oscillatorPhase[1] * OscillatorTrigTerm;
+			case ModulationSource::Internal:
+			{
+				for(int i = 0; i < numSamples; ++i)
+				{
+					// Calculate modulator main fundamental.
+					double oscillatorInLeft  = oscillatorPhase[0] * OscillatorTrigTerm;
+					double oscillatorInRight = oscillatorPhase[1] * OscillatorTrigTerm;
+					float oL = static_cast<float>(Helpers::FastSin(oscillatorInLeft  - spreadPhase));
+					float oR = static_cast<float>(Helpers::FastSin(oscillatorInRight + spreadPhase));
 
-			oscillatorValue[0] = Helpers::FastCos(oscillatorInLeft - spreadPhase);
-			oscillatorValue[1] = Helpers::FastCos(oscillatorInRight + spreadPhase);
+					// Shape parameter partials.
+					for(double n = 3.0; n < maxPartial && n * frequency < Nyquist; n += 2.0)
+					{
+						const float partialMask = (n + 1.0 >= maxPartial) ? partialFract : 1.0f;
+						oL += static_cast<float>(Helpers::FastSin(n*(oscillatorInLeft  - spreadPhase)) / n) * partialMask;
+						oR += static_cast<float>(Helpers::FastSin(n*(oscillatorInRight + spreadPhase)) / n) * partialMask;
+					}
 
-			float oL = static_cast<float>(oscillatorValue[0]);
-			float oR = static_cast<float>(oscillatorValue[1]);
+					// Perform ring modulation on the input.
+					outputs[0][i] = Helpers::Mix(inputs[0][i], inputs[0][i] * rectifyAmp*(Helpers::Mix(oL, fabsf(oL), rectification) + biasTerm), amount);
+					outputs[1][i] = Helpers::Mix(inputs[1][i], inputs[1][i] * rectifyAmp*(Helpers::Mix(oR, fabsf(oR), rectification) + biasTerm), amount);
 
-			//outputs[0][j] = Helpers::Mix(inputs[0][j], inputs[0][j] * Helpers::Mix(oL, fabsf(oL), rectification) + biasTerm, amount);
-			//outputs[1][j] = Helpers::Mix(inputs[1][j], inputs[1][j] * Helpers::Mix(oR, fabsf(oR), rectification) + biasTerm, amount);
-			buffer(0, j) = Helpers::Mix(buffer(0, j), buffer(0, j) * Helpers::Mix(oL, fabsf(oL), rectification) + biasTerm, amount);
-			buffer(1, j) = Helpers::Mix(buffer(1, j), buffer(1, j) * Helpers::Mix(oR, fabsf(oR), rectification) + biasTerm, amount);
+					oscillatorPhase[0] += frequency;
+					oscillatorPhase[1] += frequency;
+				}
 
-			oscillatorPhase[0] += frequency * oversampleFactor;
-			oscillatorPhase[1] += frequency * oversampleFactor;
+				break;
+			}
+
+			case ModulationSource::External:
+			{
+				for(int i = 0; i < numSamples; ++i)
+				{
+					// Sidechain modulation source
+					const float oL = inputs[2][i];
+					const float oR = inputs[3][i];
+
+					// Perform ring modulation on the input.
+					outputs[0][i] = Helpers::Mix(inputs[0][i], inputs[0][i] * rectifyAmp*(Helpers::Mix(oL, fabsf(oL), rectification) + biasTerm), amount);
+					outputs[1][i] = Helpers::Mix(inputs[1][i], inputs[1][i] * rectifyAmp*(Helpers::Mix(oR, fabsf(oR), rectification) + biasTerm), amount);
+				}
+				break;
+			}
 		}
-
-		buffer.downsampleTo(outputs);
 	}
 
 	void Orbiter::SetParam(int index, float value)
 	{
 		switch ((ParamIndices)index)
 		{
-		case ParamIndices::Source: modulationSource = static_cast<ModulationSource>(Helpers::ParamToBoolean(value)); break;
+		case ParamIndices::Source: modulator = static_cast<ModulationSource>(Helpers::ParamToBoolean(value)); break;
 		case ParamIndices::Frequency: frequency = Helpers::ParamToWideFrequency(value); break;
-		case ParamIndices::Bias: bias = value; break;
+		case ParamIndices::Shape: shape = value; break;
 		case ParamIndices::Rectify: rectification = value; break;
+		case ParamIndices::Bias: bias = value; break;
 		case ParamIndices::Spread: spread = value; break;
 		case ParamIndices::Amount: amount = value; break;
-		case ParamIndices::Oversampling:
-		{
-			oversampling = (OversamplingBuffer::Oversampling)(int)(value * 2.0f);
-			buffer.setOversamplingFactor(oversampling);
-			break;
-		}
 		}
 	}
 
@@ -67,19 +90,14 @@ namespace WaveSabreCore
 		{
 		case ParamIndices::Source:
 		default:
-			return Helpers::BooleanToParam(static_cast<bool>(modulationSource));
+			return Helpers::BooleanToParam(static_cast<bool>(modulator));
 
 		case ParamIndices::Frequency: return Helpers::WideFrequencyToParam(frequency);
-		case ParamIndices::Bias: return bias;
+		case ParamIndices::Shape: return shape;
 		case ParamIndices::Rectify: return rectification;
+		case ParamIndices::Bias: return bias;
 		case ParamIndices::Spread: return spread;
 		case ParamIndices::Amount: return amount;
-		case ParamIndices::Oversampling: return float(oversampling) / 2.0f;
 		}
-	}
-
-	int Orbiter::GetProcessingDelay() const
-	{
-		return buffer.getDelaySamples();
 	}
 }

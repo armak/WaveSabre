@@ -2,7 +2,6 @@
 #define __WAVESABRECORE_ORBITER_H__
 
 #include "Device.h"
-#include "OversamplingBuffer.h"
 
 namespace WaveSabreCore
 {
@@ -13,11 +12,11 @@ namespace WaveSabreCore
 		{
 			Source,
 			Frequency,
-			Bias,
+			Shape,
 			Rectify,
+			Bias,
 			Spread,
 			Amount,
-			Oversampling,
 
 			NumParams,
 		};
@@ -28,26 +27,22 @@ namespace WaveSabreCore
 
 		virtual void SetParam(int index, float value);
 		virtual float GetParam(int index) const;
-		virtual int GetProcessingDelay() const override;
 
 	private:
 		enum class ModulationSource
 		{
-			Sine,
+			Internal,
 			External
 		};
 
-		ModulationSource modulationSource = ModulationSource::Sine;
+		ModulationSource modulator = ModulationSource::Internal;
 		float frequency = 1000.0f;
-		float bias = 0.5f;
+		float shape = 0.0f;
 		float rectification = 0.0f;
+		float bias = 0.5f;
 		float spread = 0.0f;
 		float amount = 0.5;
-		OversamplingBuffer::Oversampling oversampling = OversamplingBuffer::Oversampling::X1;
 
-		OversamplingBuffer buffer = OversamplingBuffer(OversamplingBuffer::Oversampling::X1);
-
-		double oscillatorValue[2] = {};
 		double oscillatorPhase[2] = {};
 	};
 }
