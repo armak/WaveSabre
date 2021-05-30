@@ -1,6 +1,8 @@
 #ifndef __WAVESABRECORE_OVERSAMPLINGBUFFER_H__
 #define __WAVESABRECORE_OVERSAMPLINGBUFFER_H__
 
+#include <cassert>
+
 namespace WaveSabreCore
 {
 	class OversamplingBuffer
@@ -16,7 +18,6 @@ namespace WaveSabreCore
 		OversamplingBuffer() = delete;
 		OversamplingBuffer(const Oversampling factor);
 		virtual ~OversamplingBuffer();
-		int getOversamplingFactor() const;
 		void setOversampling(const Oversampling setting);
 		int getOversampleCount() const;
 		int getDelaySamples() const;
@@ -27,11 +28,13 @@ namespace WaveSabreCore
 
 		float& operator()(const size_t channel, const size_t index)
 		{
+			assert(index < static_cast<size_t>(lastOversampleAllocationSize));
 			return oversampleBuffer[channel][index];
 		}
 
 		float dry(const size_t channel, const size_t index)
 		{
+			assert(index < static_cast<size_t>(lastDryAllocationSize));
 			return dryBuffer[channel][index];
 		}
 
