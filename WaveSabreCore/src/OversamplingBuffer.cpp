@@ -157,29 +157,40 @@ namespace WaveSabreCore
 
 	void OversamplingBuffer::upsample(const int sampleCount)
 	{
+		if(lastFrameSize != sampleCount)
+		{
+			reallocateBuffer(dryBuffer, (Taps4>>1) + sampleCount);
+			reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + sampleCount));
+			reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + sampleCount));
+			reallocateBuffer(bandlimitingBuffer, 4 * sampleCount + Taps4 + 1);
+			oversamplingChanged = false;
+
+#if _DEBUG
+			lastDryAllocationSize = (Taps4>>1) + sampleCount;
+			lastUpsampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
+			lastOversampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
+			lastBandlimitAllocationSize = 4 * sampleCount + Taps4 + 1;
+#endif
+		}
+
 		switch(oversampling)
 		{
+			case Oversampling::X1:
+			{
+				for(int i = 0; i < sampleCount; ++i)
+				{
+					oversampleBuffer[0][i] = inputBuffer[0].read(i);
+					oversampleBuffer[1][i] = inputBuffer[1].read(i);
+				}
+
+				break;
+			}
+
 			case Oversampling::X2:
 			{
 				const int HalfTaps = Taps2>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = sampleCount * sizeof(float);
-
-				if(lastFrameSize != sampleCount || oversamplingChanged)
-				{
-					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
-					reallocateBuffer(upsamplingBuffer, 2 * (Taps2 + sampleCount));
-					reallocateBuffer(oversampleBuffer, 2 * (Taps2 + sampleCount));
-					reallocateBuffer(bandlimitingBuffer, 2 * sampleCount + 1);
-					oversamplingChanged = false;
-
-#if _DEBUG
-					lastDryAllocationSize = Taps2 + sampleCount;
-					lastUpsampleAllocationSize = 2 * (Taps2 + sampleCount);
-					lastOversampleAllocationSize = 2 * (Taps2 + sampleCount);
-					lastBandlimitAllocationSize = 2 * sampleCount + 1;
-#endif
-				}
 
 				for(int i = 0; i < 2; ++i)
 				{
@@ -233,23 +244,7 @@ namespace WaveSabreCore
 				const int HalfTaps = Taps4>>1;
 				const int PreviousCopyBytes = HalfTaps * sizeof(float);
 				const int CurrentCopyBytes = sampleCount * sizeof(float);
-				
-				if(lastFrameSize != sampleCount || oversamplingChanged)
-				{
-					reallocateBuffer(dryBuffer, HalfTaps + sampleCount);
-					reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + sampleCount));
-					reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + sampleCount));
-					reallocateBuffer(bandlimitingBuffer, 4 * sampleCount + Taps4 + 1);
-					oversamplingChanged = false;
 
-#if _DEBUG
-					lastDryAllocationSize = HalfTaps + sampleCount;
-					lastUpsampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
-					lastOversampleAllocationSize = 4 * (Taps4 * 2 + sampleCount);
-					lastBandlimitAllocationSize = 4 * sampleCount + Taps4 + 1;
-#endif
-				}
-				
 				for(int i = 0; i < 2; ++i)
 				{
 					assert(HalfTaps + sampleCount <= lastDryAllocationSize);
