@@ -4,8 +4,6 @@
 #include <string.h>
 #include <immintrin.h>
 
-#include <cassert>
-
 namespace WaveSabreCore
 {
 	float convolveSIMD(const float* buffer, const float* kernel, const int bufferOffset, const int kernelSize)
