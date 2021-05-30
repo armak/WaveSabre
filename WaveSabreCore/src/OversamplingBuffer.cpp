@@ -114,17 +114,6 @@ namespace WaveSabreCore
 		oversampling = setting;
 	}
 
-	int OversamplingBuffer::getOversamplingFactor() const
-	{
-		switch(oversampling)
-		{
-			default:
-			case Oversampling::X1: return 1;
-			case Oversampling::X2: return 2;
-			case Oversampling::X4: return 4;
-		}
-	}
-
 	int OversamplingBuffer::getOversampleCount() const
 	{
 		switch(oversampling)
