@@ -73,6 +73,9 @@ namespace WaveSabreCore
 		static float ParamToFrequency(float param);
 		static float FrequencyToParam(float freq);
 
+		static float ParamToWideFrequency(float param);
+		static float WideFrequencyToParam(float freq);
+
 		static float ParamToQ(float param);
 		static float QToParam(float q);
 

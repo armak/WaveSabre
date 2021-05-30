@@ -344,6 +344,16 @@ namespace WaveSabreCore
 		return sqrtf((freq - 20.0f) / (20000.0f - 20.0f));
 	}
 
+	float Helpers::ParamToWideFrequency(float param)
+	{
+		return 1.0f + (22050.0f - 1.0f) * param * param;
+	}
+
+	float Helpers::WideFrequencyToParam(float freq)
+	{
+		return sqrtf((freq - 1.0f) / (22050.0f - 1.0f));
+	}
+
 	float Helpers::ParamToQ(float param)
 	{
 		if (param < .5f)

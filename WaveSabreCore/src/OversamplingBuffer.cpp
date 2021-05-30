@@ -114,9 +114,19 @@ namespace WaveSabreCore
 		oversampling = setting;
 	}
 
+	int OversamplingBuffer::getOversamplingFactor() const
+	{
+		switch(oversampling)
+		{
+			default:
+			case Oversampling::X1: return 1;
+			case Oversampling::X2: return 2;
+			case Oversampling::X4: return 4;
+		}
+	}
+
 	int OversamplingBuffer::getOversampleCount() const
 	{
-		const auto oversamplingInteger = (int)(oversampling);
 		switch(oversampling)
 		{
 			default:
@@ -305,6 +315,13 @@ namespace WaveSabreCore
 	{
 		switch(oversampling)
 		{
+			case Oversampling::X1:
+			{
+				memcpy(output[0], oversampleBuffer[0], lastFrameSize * sizeof(float));
+				memcpy(output[1], oversampleBuffer[1], lastFrameSize * sizeof(float));
+				break;
+			}
+
 			case Oversampling::X2:
 			{
 				for(int i = 0; i < 2; ++i)
