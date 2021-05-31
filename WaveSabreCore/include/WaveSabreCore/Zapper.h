@@ -12,7 +12,7 @@ namespace WaveSabreCore
 		{
 			Frequency,
 			Q,
-			Intensity,
+			Strength,
 
 			NumParams,
 		};
@@ -27,7 +27,7 @@ namespace WaveSabreCore
 	private:
 		float frequency = 500.0f;
 		float q = 0.5f;
-		float intensity = 0.5f;
+		float strength = 0.5f;
 	};
 }
 
