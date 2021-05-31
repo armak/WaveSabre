@@ -229,12 +229,20 @@ namespace WaveSabreCore
 
 	double Helpers::Pow(double x, double y)
 	{
+#if defined(_MSC_VER) && defined(_M_IX86)
 		return fpuPow(x, y);
+#else
+		return pow(x, y);
+#endif
 	}
 
 	float Helpers::PowF(float x, float y)
 	{
+#if defined(_MSC_VER) && defined(_M_IX86)
 		return fpuPowF(x, y);
+#else
+		return powf(x, y);
+#endif
 	}
 
 	double Helpers::FastCos(double x)
