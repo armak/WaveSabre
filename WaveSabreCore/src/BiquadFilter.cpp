@@ -60,6 +60,15 @@ namespace WaveSabreCore
 					b2 = 1.0f - alpha * A;
 				}
 				break;
+			
+			case BiquadFilterType::Allpass:
+				a0 = 1.0f + alpha;
+				a1 = -2.0f * (float)Helpers::FastCos(w0);
+				a2 = 1.0f - alpha;
+				b0 = 1.0f - alpha;
+				b1 = -2.0f * (float)Helpers::FastCos(w0);
+				b2 = 1.0f + alpha;
+				break;
 			}
 
 			c1 = b0 / a0;
