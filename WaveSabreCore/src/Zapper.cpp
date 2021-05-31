@@ -18,7 +18,7 @@ namespace WaveSabreCore
 		{
 		case ParamIndices::Frequency: frequency = Helpers::ParamToFrequency(value); break;
 		case ParamIndices::Q: q = value; break;
-		case ParamIndices::Intensity: intensity = value; break;
+		case ParamIndices::Strength: strength = value; break;
 		}
 	}
 
@@ -28,10 +28,10 @@ namespace WaveSabreCore
 		{
 		case ParamIndices::Frequency:
 		default:
-			return frequency;
+			return Helpers::FrequencyToParam(frequency);
 
 		case ParamIndices::Q: return q;
-		case ParamIndices::Intensity: return intensity;
+		case ParamIndices::Strength: return strength;
 		}
 	}
 }

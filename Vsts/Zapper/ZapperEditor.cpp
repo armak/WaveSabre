@@ -14,11 +14,14 @@ ZapperEditor::~ZapperEditor()
 
 void ZapperEditor::Open()
 {
-	addKnob((VstInt32)Zapper::ParamIndices::Frequency, "Frequency");
+	addSpacer();
+	addKnob((VstInt32)Zapper::ParamIndices::Frequency, "FREQUENCY");
+	addSpacer();
 	addSpacer();
 	addKnob((VstInt32)Zapper::ParamIndices::Q, "Q");
 	addSpacer();
-	addKnob((VstInt32)Zapper::ParamIndices::Intensity, "INTENSITY");
+	addSpacer();
+	addKnob((VstInt32)Zapper::ParamIndices::Strength, "STRENGTH");
 
 	VstEditor::Open();
 }

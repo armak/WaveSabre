@@ -22,7 +22,7 @@ void ZapperVst::getParameterName(VstInt32 index, char *text)
 	{
 	case Zapper::ParamIndices::Frequency: vst_strncpy(text, "Freq", kVstMaxParamStrLen); break;
 	case Zapper::ParamIndices::Q: vst_strncpy(text, "Q", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Intensity: vst_strncpy(text, "Intensity", kVstMaxParamStrLen); break;
+	case Zapper::ParamIndices::Strength: vst_strncpy(text, "Strength", kVstMaxParamStrLen); break;
 	}
 }
 
