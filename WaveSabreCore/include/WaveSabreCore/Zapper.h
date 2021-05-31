@@ -2,6 +2,7 @@
 #define __WAVESABRECORE_ZAPPER_H__
 
 #include "Device.h"
+#include "BiquadFilter.h"
 
 namespace WaveSabreCore
 {
@@ -25,9 +26,12 @@ namespace WaveSabreCore
 		virtual float GetParam(int index) const;
 
 	private:
-		float frequency = 500.0f;
-		float q = 0.5f;
-		float strength = 0.5f;
+		static const int AllpassCount = 100;
+		BiquadFilter allpass[2][AllpassCount];
+
+		float frequency = 100.0f;
+		float q = 0.1f;
+		float strength = 0.25f;
 	};
 }
 

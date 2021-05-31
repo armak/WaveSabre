@@ -366,6 +366,30 @@ namespace WaveSabreCore
 		}
 	}
 
+	float Helpers::AllpassQToParam(float q)
+	{
+		if (q < 1.0f)
+		{
+			return (q - .025f) / (1.0f - .025f) * .5f;
+		}
+		else
+		{
+			return (q - 1.0f) / 11.0f * .5f + .5f;
+		}
+	}
+
+	float Helpers::ParamToAllpassQ(float param)
+	{
+		if (param < .5f)
+		{
+			return param / .5f * (1.0f - .025f) + .025f;
+		}
+		else
+		{
+			return (param - .5f) / .5f * 11.0f + 1.0f;
+		}
+	}
+
 	float Helpers::QToParam(float q)
 	{
 		if (q < 1.0f)

@@ -79,6 +79,9 @@ namespace WaveSabreCore
 		static float ParamToQ(float param);
 		static float QToParam(float q);
 
+		static float ParamToAllpassQ(float param);
+		static float AllpassQToParam(float q);
+
 		static float ParamToDb(float param, float range = 24.0f);
 		static float DbToParam(float db, float range = 24.0f);
 
