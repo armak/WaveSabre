@@ -4,7 +4,7 @@
 using namespace WaveSabreCore;
 
 ZapperEditor::ZapperEditor(AudioEffect *audioEffect)
-	: VstEditor(audioEffect, 460, 100, "Zapper")
+	: VstEditor(audioEffect, 320, 100, "Zapper")
 {
 }
 
@@ -14,19 +14,11 @@ ZapperEditor::~ZapperEditor()
 
 void ZapperEditor::Open()
 {
-	addKnob((VstInt32)Zapper::ParamIndices::Source, "SIDECHAIN");
-
+	addKnob((VstInt32)Zapper::ParamIndices::Frequency, "Frequency");
 	addSpacer();
-
-	addKnob((VstInt32)Zapper::ParamIndices::Frequency, "FREQ");
-	addKnob((VstInt32)Zapper::ParamIndices::Shape, "SHAPE");
-	addKnob((VstInt32)Zapper::ParamIndices::Rectify, "RECTIFY");
-	addKnob((VstInt32)Zapper::ParamIndices::Bias, "BIAS");
-
+	addKnob((VstInt32)Zapper::ParamIndices::Q, "Q");
 	addSpacer();
-
-	addKnob((VstInt32)Zapper::ParamIndices::Spread, "SPREAD");
-	addKnob((VstInt32)Zapper::ParamIndices::Amount, "AMOUNT");
+	addKnob((VstInt32)Zapper::ParamIndices::Intensity, "INTENSITY");
 
 	VstEditor::Open();
 }
