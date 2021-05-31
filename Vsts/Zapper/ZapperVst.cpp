@@ -11,7 +11,7 @@ AudioEffect *createEffectInstance(audioMasterCallback audioMaster)
 }
 
 ZapperVst::ZapperVst(audioMasterCallback audioMaster)
-	: VstPlug(audioMaster, (int)Zapper::ParamIndices::NumParams, 4, 2, 'Obtr', new Zapper())
+	: VstPlug(audioMaster, (int)Zapper::ParamIndices::NumParams, 2, 2, 'Zppr', new Zapper())
 {
 	setEditor(new ZapperEditor(this));
 }
@@ -20,13 +20,9 @@ void ZapperVst::getParameterName(VstInt32 index, char *text)
 {
 	switch ((Zapper::ParamIndices)index)
 	{
-	case Zapper::ParamIndices::Source: vst_strncpy(text, "Sidchain", kVstMaxParamStrLen); break;
 	case Zapper::ParamIndices::Frequency: vst_strncpy(text, "Freq", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Shape: vst_strncpy(text, "Shape", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Bias: vst_strncpy(text, "Bias", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Rectify: vst_strncpy(text, "Rectify", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Spread: vst_strncpy(text, "Spread", kVstMaxParamStrLen); break;
-	case Zapper::ParamIndices::Amount: vst_strncpy(text, "Amount", kVstMaxParamStrLen); break;
+	case Zapper::ParamIndices::Q: vst_strncpy(text, "Q", kVstMaxParamStrLen); break;
+	case Zapper::ParamIndices::Intensity: vst_strncpy(text, "Intensity", kVstMaxParamStrLen); break;
 	}
 }
 
