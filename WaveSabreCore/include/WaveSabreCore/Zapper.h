@@ -14,6 +14,7 @@ namespace WaveSabreCore
 			Frequency,
 			Q,
 			Strength,
+			Drywet,
 
 			NumParams,
 		};
@@ -32,6 +33,7 @@ namespace WaveSabreCore
 		float frequency = 100.0f;
 		float q = 0.1f;
 		float strength = 0.25f;
+		float drywet = 1.0f;
 	};
 }
 

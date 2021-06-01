@@ -26,13 +26,15 @@ namespace WaveSabreCore
 
 			for(int j = 0; j < numSamples; ++j)
 			{
-				float state = allpass[i][0].Next(inputs[i][j]);
+				const float input = inputs[i][j];
+				float state = allpass[i][0].Next(input);
+
 				for(int k = 1; k < filters; ++k)
 				{
 					state = allpass[i][k].Next(state);
 				}
 
-				outputs[i][j] = state;
+				outputs[i][j] = Helpers::Mix(input, state, drywet);
 			}
 		}
 	}
@@ -44,6 +46,7 @@ namespace WaveSabreCore
 		case ParamIndices::Frequency: frequency = Helpers::ParamToFrequency(value); break;
 		case ParamIndices::Q: q = Helpers::ParamToAllpassQ(value); break;
 		case ParamIndices::Strength: strength = value; break;
+		case ParamIndices::Drywet: drywet = value; break;
 		}
 	}
 
@@ -57,6 +60,7 @@ namespace WaveSabreCore
 
 		case ParamIndices::Q: return Helpers::AllpassQToParam(q);
 		case ParamIndices::Strength: return strength;
+		case ParamIndices::Drywet: return drywet;
 		}
 	}
 }

@@ -14,14 +14,13 @@ ZapperEditor::~ZapperEditor()
 
 void ZapperEditor::Open()
 {
-	addSpacer();
 	addKnob((VstInt32)Zapper::ParamIndices::Frequency, "FREQUENCY");
-	addSpacer();
 	addSpacer();
 	addKnob((VstInt32)Zapper::ParamIndices::Q, "Q");
 	addSpacer();
-	addSpacer();
 	addKnob((VstInt32)Zapper::ParamIndices::Strength, "STRENGTH");
+	addSpacer();
+	addKnob((VstInt32)Zapper::ParamIndices::Drywet, "DRY/WET");
 
 	VstEditor::Open();
 }
