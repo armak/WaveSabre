@@ -17,5 +17,6 @@
 #include "Cathedral.h"
 #include "Corrosion.h"
 #include "Orbiter.h"
+#include "Zapper.h"
 
 #endif

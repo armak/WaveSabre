@@ -29,6 +29,7 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/SynthDevice.h
 	include/WaveSabreCore/Thunder.h
 	include/WaveSabreCore/Twister.h
+	include/WaveSabreCore/Zapper.h
 	src/Adultery.cpp
 	src/AllPass.cpp
 	src/AllPassDelay.cpp
@@ -58,7 +59,8 @@ add_library(WaveSabreCore
 	src/StateVariableFilter.cpp
 	src/SynthDevice.cpp
 	src/Thunder.cpp
-	src/Twister.cpp)
+	src/Twister.cpp
+	src/Zapper.cpp)
 
 target_link_libraries(WaveSabreCore Msacm32.lib)
 target_include_directories(WaveSabreCore PUBLIC include)
