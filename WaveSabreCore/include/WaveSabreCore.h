@@ -7,6 +7,7 @@
 #include "WaveSabreCore/Helpers.h"
 #include "WaveSabreCore/Envelope.h"
 #include "WaveSabreCore/BiquadFilter.h"
+#include "WaveSabreCore/ButterworthFilter.h"
 #include "WaveSabreCore/StateVariableFilter.h"
 #include "WaveSabreCore/DelayBuffer.h"
 #include "WaveSabreCore/AllPassDelay.h"
