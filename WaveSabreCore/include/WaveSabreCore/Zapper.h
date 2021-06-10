@@ -14,6 +14,7 @@ namespace WaveSabreCore
 			Frequency,
 			Q,
 			Strength,
+			Feedback,
 			Drywet,
 
 			NumParams,
@@ -33,7 +34,13 @@ namespace WaveSabreCore
 		float frequency = 100.0f;
 		float q = 0.1f;
 		float strength = 0.25f;
+		float feedback = 0.5f;
 		float drywet = 1.0f;
+		float lastSample[2] = {};
+
+		float frequencyChase = frequency;
+		float qChase = q;
+		static const float ChaseFactor;
 	};
 }
 

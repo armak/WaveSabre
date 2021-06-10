@@ -128,4 +128,13 @@ namespace WaveSabreCore
 		this->gain = gain;
 		recalculate = true;
 	}
+
+	void BiquadFilter::CopyCoefficients(const BiquadFilter& source)
+	{
+		c1 = source.c1;
+		c2 = source.c2;
+		c3 = source.c3;
+		c4 = source.c4;
+		c5 = source.c5;
+	}
 }
