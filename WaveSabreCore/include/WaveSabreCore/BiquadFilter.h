@@ -22,6 +22,7 @@ namespace WaveSabreCore
 		void SetFreq(float freq);
 		void SetQ(float q);
 		void SetGain(float gain);
+		void CopyCoefficients(const BiquadFilter& source);
 
 	private:
 		bool recalculate;
