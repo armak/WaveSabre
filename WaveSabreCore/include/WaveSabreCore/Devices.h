@@ -18,6 +18,7 @@
 #include "Corrosion.h"
 #include "Orbiter.h"
 #include "Zapper.h"
+#include "Butter.h"
 #include "Multiband.h"
 
 #endif
