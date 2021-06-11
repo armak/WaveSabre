@@ -76,7 +76,6 @@ namespace WaveSabreCore
 		float previousBuffer[2][Taps4] = {};
 
 		Oversampling oversampling;
-		bool oversamplingChanged;
 		int lastFrameSize;
 
 #if _DEBUG
