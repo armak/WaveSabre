@@ -18,5 +18,6 @@
 #include "Corrosion.h"
 #include "Orbiter.h"
 #include "Zapper.h"
+#include "Multiband.h"
 
 #endif
