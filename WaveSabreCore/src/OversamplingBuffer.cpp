@@ -51,7 +51,7 @@ namespace WaveSabreCore
 
 	const double OversamplingBuffer::FirCutoffRatio = 21000.0/44100.0;
 
-	OversamplingBuffer::OversamplingBuffer(const Oversampling factor) : oversampling(factor), oversamplingChanged(true), lastFrameSize(0)
+	OversamplingBuffer::OversamplingBuffer(const Oversampling factor) : oversampling(factor), lastFrameSize(0)
 	{
 		createSincImpulse(firResponse2, Taps2, FirCutoffRatio * 0.5);
 		createSincImpulse(firResponse4, Taps4, FirCutoffRatio * 0.25);
@@ -110,7 +110,6 @@ namespace WaveSabreCore
 
 	void OversamplingBuffer::setOversampling(const Oversampling setting)
 	{
-		if(setting != oversampling) oversamplingChanged = true;
 		oversampling = setting;
 	}
 
@@ -160,7 +159,6 @@ namespace WaveSabreCore
 			reallocateBuffer(upsamplingBuffer, 4 * (Taps4 * 2 + sampleCount));
 			reallocateBuffer(oversampleBuffer, 4 * (Taps4 * 2 + sampleCount));
 			reallocateBuffer(bandlimitingBuffer, 4 * sampleCount + Taps4 + 1);
-			oversamplingChanged = false;
 
 #if _DEBUG
 			lastDryAllocationSize = (Taps4>>1) + sampleCount;
