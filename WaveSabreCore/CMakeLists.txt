@@ -18,6 +18,7 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/GmDls.h
 	include/WaveSabreCore/Helpers.h
 	include/WaveSabreCore/Leveller.h
+	include/WaveSabreCore/Multiband.h
 	include/WaveSabreCore/MxcsrFlagGuard.h
 	include/WaveSabreCore/Orbiter.h
 	include/WaveSabreCore/OversamplingBuffer.h
@@ -51,6 +52,7 @@ add_library(WaveSabreCore
 	src/GmDls.cpp
 	src/Helpers.cpp
 	src/Leveller.cpp
+	src/Multiband.cpp
 	src/MxcsrFlagGuard.cpp
 	src/Orbiter.cpp
 	src/OversamplingBuffer.cpp
