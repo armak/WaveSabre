@@ -20,6 +20,11 @@ namespace WaveSabreCore
 		lastOutput = lastLastOutput = 0.0;
 	}
 
+	ButterworthFilter::ButterworthFilter(ButterworthFilterType filterType)
+	{
+		type = filterType;
+	}
+
 	float ButterworthFilter::Next(float input)
 	{
 		if (recalculate)
