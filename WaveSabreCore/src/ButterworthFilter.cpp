@@ -1,120 +1,127 @@
 #include <WaveSabreCore/ButterworthFilter.h>
 #include <WaveSabreCore/Helpers.h>
-/*
+
 #include <math.h>
 
 namespace WaveSabreCore
 {
-	ButterworthFilter::ButterworthFilter() :
-		type(ButterworthFilterType::Lowpass),
-		minCutoff(static_cast<float>(Helpers::CurrentSampleRate) * 0.0005f),
-		maxCutoff(static_cast<float>(Helpers::CurrentSampleRate) * 0.5f),
-		freq(maxCutoff),
-		q(0.0f),
-		gain(1.0f),
-		t0(4.0f * static_cast<float>(Helpers::CurrentSampleRate) * static_cast<float>(Helpers::CurrentSampleRate)),
-		t1(8.0f * static_cast<float>(Helpers::CurrentSampleRate) * static_cast<float>(Helpers::CurrentSampleRate)),
-		t2(2.0f * static_cast<float>(Helpers::CurrentSampleRate)),
-		t3(3.1415926f / static_cast<float>(Helpers::CurrentSampleRate)),
-		c0(0.0f), c1(0.0f), c2(0.0f), c3(0.0f),
-		hist1(0.0f), hist2(0.0f), hist3(0.0f), hist4(0.0f)
+	ButterworthFilter::ButterworthFilter()
 	{
-	}
+		recalculate = true;
 
-	void ButterworthFilter::SetType(ButterworthFilterType type)
-	{
-	}
+		type = ButterworthFilterType::Lowpass;
 
-	void ButterworthFilter::Set(float freq, float q)
-	{
-		freq = Helpers::Clamp(freq, minCutoff, maxCutoff);
-		q = Helpers::Clamp(q, 0.0f, 1.0f);
-		// Try to gain match the signal without resonance (Q),
-		// so that the signal remains roughly equal level.
-		const float ResonanceGainReduction = 1.0f - q * 0.5f;
+		freq = 1000.0f;
+		q = 1.0f;
+		gain = 0.0f;
+		order = 1;
 
-		// TODO: alle the types.
-		switch(type)
-		{
-			case ButterworthFilterType::Lowpass:
-			{
-				float wp = t2 * tanf(t3 * freq);
-				static const float BUDDA_Q_SCALE = 6.0f;
-				q *= BUDDA_Q_SCALE;
-				q += 1.0f;
-
-				float b1 = (0.765367f / q) / wp;
-				float b2 = 1.0f / (wp * wp);
-				float bdTemp = t0 * b2 + 1.0f;
-				float bd = 1.0f / (bdTemp + t2 * b1);
-
-				gain = bd * ResonanceGainReduction;
-				c2 = 2.0f - t1 * b2;
-				c0 = c2 * bd;
-				c1 = (bdTemp - t2 * b1) * bd;
-
-				b1 = (1.847759f / q) / wp;
-				bd = 1.0f / (bdTemp + t2 * b1);
-
-				gain *= bd;
-				c2 *= bd;
-				c3 = (bdTemp - t2 * b1) * bd;
-			}
-			break;
-
-			case ButterworthFilterType::Highpass:
-			{
-				
-				float wp = 1.0f / (t2 * tanf(t3 * freq));
-				static const float BUDDA_Q_SCALE = 6.0f;
-				q *= BUDDA_Q_SCALE;
-				q += 1.0f;
-
-				float b1 = (0.765367f / q) / wp;
-				float b2 = 1.0f / (wp * wp);
-				float bdTemp = t0 * b2 + 1.0f;
-				float bd = 1.0f / (bdTemp + t2 * b1);
-
-				gain = bd * ResonanceGainReduction;
-				c2 = 2.0f - t1 * b2;
-				c0 = c2 * bd;
-				c1 = (bdTemp - t2 * b1) * bd;
-
-				b1 = (1.847759f / q) / wp;
-				bd = 1.0f / (bdTemp + t2 * b1);
-
-				gain *= bd;
-				c2 *= bd;
-				c3 = (bdTemp - t2 * b1) * bd;
-			}
-			break;
-		}
+		lastInput = lastLastInput = 0.0;
+		lastOutput = lastLastOutput = 0.0;
 	}
 
 	float ButterworthFilter::Next(float input)
 	{
-		float output = input * gain;
-		float histNext;
+		if (recalculate)
+		{
+			double w0 = M_PI * freq / Helpers::CurrentSampleRate;
 
-		output -= hist1 * c0;
-		histNext = output - hist2 * c1;
+			// Factor of 10 gives a maximum resonance of +18dB.
+			double Q = 1.0 + 10.0*q*orderFactor;
 
-		output = histNext + hist1 * 2.0f;
-		output += hist2;
+			switch (type)
+			{
+				case ButterworthFilterType::Lowpass:
+				{
+					const double C = 1.0 / (tan(w0));
+					a0 = 1.0 / (1.0 + M_SQRT2*C/Q + C*C);
+					a1 = 2.0*a0;
+					a2 = a0;
+					b0 = 0.0;
+					b1 = 2.0*a0*(1.0 - C*C);
+					b2 = a0 * (1.0 - M_SQRT2*C/Q + C*C);
+					break;
+				}
 
-		hist2 = hist1;
-		hist1 = histNext;
-		
-		output -= hist3 * c2;
-		histNext = output - hist4 * c3;
+				case ButterworthFilterType::Highpass:
+				{
+					const double C = tan(w0);
+					a0 = 1.0 / (1.0 + M_SQRT2*C/Q + C*C);
+					a1 = -2.0*a0;
+					a2 = a0;
+					b0 = 0.0;
+					b1 = 2.0*a0*(C*C - 1.0);
+					b2 = a0*(1.0 - M_SQRT2*C/Q + C*C);
+					break;
+				}
 
-		output = histNext + hist3 * 2.0f;
-		output += hist4;
+				case ButterworthFilterType::Bandpass:
+				{
+					const double bw = freq/Q;
+					double dc = M_PI*bw / Helpers::CurrentSampleRate;
+					if(dc >= 0.99*M_PI_2) dc = 0.99*M_PI_2;
 
-		hist4 = hist3;
-		hist3 = histNext;
-		
+					const double C = 1.0 / tan(dc);
+					const double D = 2.0 * Helpers::FastCos(2.0*w0);
+					a0 = 1.0 / (1.0 + C);
+					a1 = 0.0;
+					a2 = -a0;
+					b1 = -a0*C*D;
+					b2 = a0*(C - 1.0);
+					break;
+				}
+			
+				case ButterworthFilterType::Bandstop:
+				{
+					const double bw = freq/Q;
+					double dc = M_PI*bw / Helpers::CurrentSampleRate;
+					if(dc >= 0.99*M_PI_2) dc = 0.99*M_PI_2;
+
+					const double C = tan(dc);
+					const double D = 2.0 * Helpers::FastCos(2.0*w0);
+					a0 = 1.0 / (1.0 + C);
+					a1 = -a0*D;
+					a2 = a0;
+					b1 = -a0*D;
+					b2 = a0*(1.0 - C);
+					break;
+				}
+			}
+
+			recalculate = false;
+		}
+
+		double output = a0*input + a1*lastInput + a2*lastLastInput - b1*lastOutput - b2*lastLastOutput;
+
+		lastLastInput = lastInput;
+		lastInput = input;
+
+		if (fabsf(lastOutput) <= .0000001f) lastOutput = 0.0;
+
+		lastLastOutput = lastOutput;
+		lastOutput = output;
+
 		return output;
 	}
+
+	void ButterworthFilter::SetType(ButterworthFilterType type)
+	{
+		if (type == this->type)
+			return;
+
+		this->type = type;
+		recalculate = true;
+	}
+
+	void ButterworthFilter::Set(float freq, float q, int order)
+	{
+		if (freq == this->freq && q == this->q && order == this->order)
+			return;
+
+		this->freq = freq;
+		this->q = q;
+		this->order = order;
+		orderFactor = 1.0f / powf(static_cast<float>(order), 1.5f);
+		recalculate = true;
+	}
 }
-*/

@@ -3,6 +3,7 @@
 
 #include "Device.h"
 #include "DelayBuffer.h"
+#include "ButterworthFilter.h"
 
 namespace WaveSabreCore
 {
@@ -11,6 +12,37 @@ namespace WaveSabreCore
 	public:
 		enum class ParamIndices
 		{
+			Sidechain,
+			InputGain,
+			
+			LowBandCutoff,
+			MidBandCutoff,
+			HighBandCutoff,
+
+			Band1Threshold,
+			Band1Ratio,
+			Band1Attack,
+			Band1Release,
+			Band1Gain,
+
+			Band2Threshold,
+			Band2Ratio,
+			Band2Attack,
+			Band2Release,
+			Band2Gain,
+
+			Band3Threshold,
+			Band3Ratio,
+			Band3Attack,
+			Band3Release,
+			Band3Gain,
+
+			Band4Threshold,
+			Band4Ratio,
+			Band4Attack,
+			Band4Release,
+			Band4Gain,
+			
 			NumParams,
 		};
 
@@ -23,6 +55,21 @@ namespace WaveSabreCore
 		virtual float GetParam(int index) const;
 
 	private:
+		struct LinkwitzRileyCrossover
+		{
+			ButterworthFilter low[2][2];
+			ButterworthFilter high[2][2];
+		};
+
+		struct CompressionBand
+		{
+			LinkwitzRileyCrossover crossover;
+			float threshold, ratio;
+			float attack, release;
+			float gain;
+		};
+
+		CompressionBand bands[4];
 	};
 }
 
