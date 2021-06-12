@@ -55,18 +55,28 @@ namespace WaveSabreCore
 		virtual float GetParam(int index) const;
 
 	private:
+		enum class Band
+		{
+			Low,
+			LowMid,
+			HighMid,
+			High
+		};
+
 		struct LinkwitzRileyCrossover
 		{
-			ButterworthFilter low[2][2] = {ButterworthFilterType::Lowpass,
-                                           ButterworthFilterType::Lowpass,
-				                           ButterworthFilterType::Lowpass,
-				                           ButterworthFilterType::Lowpass
-			                              };
-			ButterworthFilter high[2][2] = {ButterworthFilterType::Highpass,
-                                            ButterworthFilterType::Highpass,
-				                            ButterworthFilterType::Highpass,
-				                            ButterworthFilterType::Highpass
-			                               };
+			ButterworthFilter low[2][2] = {
+				ButterworthFilterType::Lowpass,
+				ButterworthFilterType::Lowpass,
+				ButterworthFilterType::Lowpass,
+				ButterworthFilterType::Lowpass
+			};
+			ButterworthFilter high[2][2] = {
+				ButterworthFilterType::Highpass,
+				ButterworthFilterType::Highpass,
+				ButterworthFilterType::Highpass,
+				ButterworthFilterType::Highpass
+			};
 
 			void setCutoff(const float freq)
 			{
@@ -74,8 +84,8 @@ namespace WaveSabreCore
 				for(int i = 0; i < 2; ++i)
 					for(int j = 0; j < 2; ++j)
 					{
-						low[i][j].Set(freq, 0.0f, 0);
-						high[i][j].Set(freq, 0.0f, 0);
+						low[i][j].SetFreq(freq);
+						high[i][j].SetFreq(freq);
 					}
 			}
 
@@ -89,10 +99,18 @@ namespace WaveSabreCore
 			float attack = 1.0f;
 			float release = 100.0f;
 			float gain = 0.0f;
+
+			float peak = 0.0f;
 		};
 
-		LinkwitzRileyCrossover crossovers[3];
-		CompressorBand bands[4];
+		float gainReduction(const Band band, const float sample, const int channel);
+
+		static const int BandCount = 4;
+
+		LinkwitzRileyCrossover crossovers[BandCount - 1];
+		CompressorBand bands[BandCount];
+		CompressorBand bandsScalar[BandCount];
+		float bandPeaks[2][BandCount] = {};
 		float inputGain = 0.5f;
 		bool sidechain = false;
 	};
