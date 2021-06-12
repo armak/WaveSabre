@@ -3,13 +3,20 @@
 
 namespace WaveSabreCore
 {
-/*
 	enum class ButterworthFilterType
 	{
 		Lowpass,
 		Highpass,
 		Bandpass,
 		Bandstop
+	};
+
+	enum class ButterworthFilterOrder
+	{
+		Second,
+		Fourth,
+		Sixth,
+		Eighth
 	};
 
 	class ButterworthFilter
@@ -21,21 +28,24 @@ namespace WaveSabreCore
 
 		void SetType(ButterworthFilterType type);
 
-		void Set(float freq, float q);
+		void Set(float freq, float q, int order);
 
 	private:
 		ButterworthFilterType type;
-		float minCutoff, maxCutoff;
+		bool recalculate;
 
 		float freq;
 		float q;
 		float gain;
+		float orderFactor;
+		int order;
 
-		float t0, t1, t2, t3;
-		float c0, c1, c2, c3;
-		float hist1, hist2, hist3, hist4;
+		double a0, a1, a2;
+		double b0, b1, b2;
+
+		double lastInput, lastLastInput;
+		double lastOutput, lastLastOutput;
 	};
-	*/
 }
 
 #endif
