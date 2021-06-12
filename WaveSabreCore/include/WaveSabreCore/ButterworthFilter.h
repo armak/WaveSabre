@@ -26,10 +26,9 @@ namespace WaveSabreCore
 		ButterworthFilter(ButterworthFilterType filterType);
 
 		float Next(float input);
-
 		void SetType(ButterworthFilterType type);
-
 		void Set(float freq, float q, int order);
+		void SetFreq(float freq);
 
 	private:
 		ButterworthFilterType type;

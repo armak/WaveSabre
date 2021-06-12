@@ -20,7 +20,7 @@ namespace WaveSabreCore
 		lastOutput = lastLastOutput = 0.0;
 	}
 
-	ButterworthFilter::ButterworthFilter(ButterworthFilterType filterType)
+	ButterworthFilter::ButterworthFilter(ButterworthFilterType filterType) : ButterworthFilter()
 	{
 		type = filterType;
 	}
@@ -127,6 +127,15 @@ namespace WaveSabreCore
 		this->q = q;
 		this->order = order;
 		orderFactor = 1.0f / powf(static_cast<float>(order), 1.5f);
+		recalculate = true;
+	}
+
+	void ButterworthFilter::SetFreq(float freq)
+	{
+		if (freq == this->freq)
+			return;
+
+		this->freq = freq;
 		recalculate = true;
 	}
 }

@@ -7,9 +7,9 @@ namespace WaveSabreCore
 {
 	Multiband::Multiband() : Device((int)ParamIndices::NumParams)
 	{
-		crossovers[0].setCutoff(150.0f);
-		crossovers[1].setCutoff(1000.0f);
-		crossovers[2].setCutoff(5000.0f);
+		crossovers[0].setCutoff(120.0f);
+		crossovers[1].setCutoff(800.0f);
+		crossovers[2].setCutoff(5400.0f);
 	}
 
 	Multiband::~Multiband()
@@ -18,6 +18,61 @@ namespace WaveSabreCore
 
 	void Multiband::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
+		const float envCoeff = static_cast<float>(1000.0 / Helpers::CurrentSampleRate);
+
+		for(int i = 0; i < BandCount; ++i)
+		{
+			bandsScalar[i].threshold = Helpers::DbToScalar(bands[i].threshold);
+			bandsScalar[i].ratio = bands[i].ratio;
+			bandsScalar[i].attack = envCoeff / bands[i].attack;
+			bandsScalar[i].release = envCoeff / bands[i].release;
+			bandsScalar[i].gain = Helpers::DbToScalar(bands[i].gain);
+		}
+
+		for(int i = 0; i < 2; ++i)
+		{
+			for(int j = 0; j < numSamples; ++j)
+			{
+				float s = inputs[i][j];
+				
+				float lowBand   = crossovers[0].low [i][1].Next(crossovers[0].low [i][0].Next(s));
+				float loMidBand = crossovers[1].low [i][1].Next(crossovers[1].low [i][0].Next(crossovers[0].high[i][1].Next(crossovers[0].high[i][0].Next(s))));
+				float hiMidBand = crossovers[2].low [i][1].Next(crossovers[2].low [i][0].Next(crossovers[1].high[i][1].Next(crossovers[1].high[i][0].Next(s))));
+				float highBand  = crossovers[2].high[i][1].Next(crossovers[2].high[i][0].Next(s));
+
+				lowBand   *= gainReduction(Band::Low, lowBand, i);
+				loMidBand *= gainReduction(Band::LowMid, loMidBand, i);
+				hiMidBand *= gainReduction(Band::HighMid, hiMidBand, i);
+				highBand  *= gainReduction(Band::High, highBand, i);
+
+				outputs[i][j] = lowBand + loMidBand + hiMidBand + highBand;
+			}
+		}
+	}
+
+	float Multiband::gainReduction(const Band band, const float input, const int channel)
+	{
+		const int index = static_cast<int>(band);
+		const float threshold = bandsScalar[index].threshold;
+		float& peak = bandPeaks[channel][index];
+
+		float inputLevel = fabsf(input);
+
+		if (inputLevel > peak)
+		{
+			peak += bandsScalar[index].attack;
+			if (peak > inputLevel) peak = inputLevel;
+		}
+		else
+		{
+			peak -= bandsScalar[index].release;
+			if (peak < inputLevel) peak = inputLevel;
+		}
+
+		float gainScalar = bandsScalar[index].gain;
+		if (peak > threshold) gainScalar *= (threshold + (peak - threshold) / bandsScalar[index].ratio) / peak;
+
+		return gainScalar;
 	}
 
 	void Multiband::SetParam(int index, float value)
