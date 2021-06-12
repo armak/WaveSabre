@@ -23,6 +23,7 @@ namespace WaveSabreCore
 	{
 	public:
 		ButterworthFilter();
+		ButterworthFilter(ButterworthFilterType filterType);
 
 		float Next(float input);
 
