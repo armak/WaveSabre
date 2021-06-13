@@ -16,8 +16,8 @@ namespace WaveSabreCore
 		gain = 0.0f;
 		order = 1;
 
-		lastInput = lastLastInput = 0.0;
-		lastOutput = lastLastOutput = 0.0;
+		lastInput = lastLastInput = 0.0f;
+		lastOutput = lastLastOutput = 0.0f;
 	}
 
 	ButterworthFilter::ButterworthFilter(ButterworthFilterType filterType) : ButterworthFilter()
@@ -29,66 +29,64 @@ namespace WaveSabreCore
 	{
 		if (recalculate)
 		{
-			double w0 = M_PI * freq / Helpers::CurrentSampleRate;
+			float w0 = M_PI * freq / Helpers::CurrentSampleRate;
 
 			// Factor of 10 gives a maximum resonance of +18dB.
-			double Q = 1.0 + 10.0*q*orderFactor;
+			float Q = 1.0f + 10.0f*q*orderFactor;
 
 			switch (type)
 			{
 				case ButterworthFilterType::Lowpass:
 				{
-					const double C = 1.0 / (tan(w0));
-					a0 = 1.0 / (1.0 + M_SQRT2*C/Q + C*C);
-					a1 = 2.0*a0;
+					const float C = 1.0f / (tanf(w0));
+					a0 = 1.0f / (1.0f + M_SQRT2*C/Q + C*C);
+					a1 = 2.0f*a0;
 					a2 = a0;
-					b0 = 0.0;
-					b1 = 2.0*a0*(1.0 - C*C);
-					b2 = a0 * (1.0 - M_SQRT2*C/Q + C*C);
+					b0 = 0.0f;
+					b1 = 2.0f*a0*(1.0f - C*C);
+					b2 = a0 * (1.0f - M_SQRT2*C/Q + C*C);
 					break;
 				}
 
 				case ButterworthFilterType::Highpass:
 				{
-					const double C = tan(w0);
-					a0 = 1.0 / (1.0 + M_SQRT2*C/Q + C*C);
-					a1 = -2.0*a0;
+					const float C = tanf(w0);
+					a0 = 1.0f / (1.0f + M_SQRT2*C/Q + C*C);
+					a1 = -2.0f*a0;
 					a2 = a0;
-					b0 = 0.0;
-					b1 = 2.0*a0*(C*C - 1.0);
-					b2 = a0*(1.0 - M_SQRT2*C/Q + C*C);
+					b0 = 0.0f;
+					b1 = 2.0f*a0*(C*C - 1.0f);
+					b2 = a0*(1.0f - M_SQRT2*C/Q + C*C);
 					break;
 				}
 
 				case ButterworthFilterType::Bandpass:
 				{
-					const double bw = freq/Q;
-					double dc = M_PI*bw / Helpers::CurrentSampleRate;
+					float dc = w0/Q;
 					if(dc >= 0.99*M_PI_2) dc = 0.99*M_PI_2;
 
-					const double C = 1.0 / tan(dc);
-					const double D = 2.0 * Helpers::FastCos(2.0*w0);
-					a0 = 1.0 / (1.0 + C);
-					a1 = 0.0;
+					const float C = 1.0f / tanf(dc);
+					const float D = 2.0f * static_cast<float>(Helpers::FastCos(2.0f*w0));
+					a0 = 1.0f / (1.0f + C);
+					a1 = 0.0f;
 					a2 = -a0;
 					b1 = -a0*C*D;
-					b2 = a0*(C - 1.0);
+					b2 = a0*(C - 1.0f);
 					break;
 				}
 			
 				case ButterworthFilterType::Bandstop:
 				{
-					const double bw = freq/Q;
-					double dc = M_PI*bw / Helpers::CurrentSampleRate;
-					if(dc >= 0.99*M_PI_2) dc = 0.99*M_PI_2;
+					float dc = w0/Q;
+					if(dc >= 0.99f*M_PI_2) dc = 0.99f*M_PI_2;
 
-					const double C = tan(dc);
-					const double D = 2.0 * Helpers::FastCos(2.0*w0);
-					a0 = 1.0 / (1.0 + C);
+					const float C = tanf(dc);
+					const float D = 2.0f * static_cast<float>(Helpers::FastCos(2.0f*w0));
+					a0 = 1.0f / (1.0f + C);
 					a1 = -a0*D;
 					a2 = a0;
 					b1 = -a0*D;
-					b2 = a0*(1.0 - C);
+					b2 = a0*(1.0f - C);
 					break;
 				}
 			}
@@ -96,12 +94,12 @@ namespace WaveSabreCore
 			recalculate = false;
 		}
 
-		double output = a0*input + a1*lastInput + a2*lastLastInput - b1*lastOutput - b2*lastLastOutput;
+		float output = a0*input + a1*lastInput + a2*lastLastInput - b1*lastOutput - b2*lastLastOutput;
 
 		lastLastInput = lastInput;
 		lastInput = input;
 
-		if (fabsf(lastOutput) <= .0000001f) lastOutput = 0.0;
+		if (fabsf(lastOutput) <= .0000001f) lastOutput = 0.0f;
 
 		lastLastOutput = lastOutput;
 		lastOutput = output;

@@ -40,11 +40,11 @@ namespace WaveSabreCore
 		float orderFactor;
 		int order;
 
-		double a0, a1, a2;
-		double b0, b1, b2;
+		float a0, a1, a2;
+		float b0, b1, b2;
 
-		double lastInput, lastLastInput;
-		double lastOutput, lastLastOutput;
+		float lastInput, lastLastInput;
+		float lastOutput, lastLastOutput;
 	};
 }
 
