@@ -172,18 +172,6 @@ namespace WaveSabreCore
 		{
 			case Oversampling::X1:
 			{
-<<<<<<< HEAD
-				if(lastFrameSize != sampleCount || oversamplingChanged)
-				{
-					reallocateBuffer(dryBuffer, sampleCount);
-					reallocateBuffer(upsamplingBuffer, sampleCount);
-					reallocateBuffer(oversampleBuffer, sampleCount);
-					reallocateBuffer(bandlimitingBuffer, sampleCount);
-					oversamplingChanged = false;
-				}
-
-=======
->>>>>>> GUI thread can submit parameter changes non-synchronously, prevent buffer overruns by always allocating large enough processing buffers regardless of the oversampling setting.
 				for(int i = 0; i < sampleCount; ++i)
 				{
 					oversampleBuffer[0][i] = inputBuffer[0].read(i);

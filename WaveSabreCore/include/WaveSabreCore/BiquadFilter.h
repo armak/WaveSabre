@@ -33,7 +33,7 @@ namespace WaveSabreCore
 		float gain;
 
 		float c1, c2, c3, c4, c5;
-
+		
 		float lastInput, lastLastInput;
 		float lastOutput, lastLastOutput;
 	};

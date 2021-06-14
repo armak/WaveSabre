@@ -12,12 +12,11 @@ namespace WaveSabreCore
 		type = ButterworthFilterType::Lowpass;
 
 		freq = 1000.0f;
-		q = 1.0f;
+		q = 0.0f;
 		gain = 0.0f;
 		order = 1;
 
-		lastInput = lastLastInput = 0.0f;
-		lastOutput = lastLastOutput = 0.0f;
+		z1 = z2 = 0.0f;
 	}
 
 	ButterworthFilter::ButterworthFilter(ButterworthFilterType filterType) : ButterworthFilter()
@@ -32,7 +31,7 @@ namespace WaveSabreCore
 			float w0 = M_PI * freq / Helpers::CurrentSampleRate;
 
 			// Factor of 10 gives a maximum resonance of +18dB.
-			float Q = 1.0f + 10.0f*q*orderFactor;
+			float Q = 1.0;//1.0f + 10.0f*q*orderFactor;
 
 			switch (type)
 			{
@@ -94,15 +93,9 @@ namespace WaveSabreCore
 			recalculate = false;
 		}
 
-		float output = a0*input + a1*lastInput + a2*lastLastInput - b1*lastOutput - b2*lastLastOutput;
-
-		lastLastInput = lastInput;
-		lastInput = input;
-
-		if (fabsf(lastOutput) <= .0000001f) lastOutput = 0.0f;
-
-		lastLastOutput = lastOutput;
-		lastOutput = output;
+		float output = a0 * input + z1;
+		z1 = a1*input - b1*output + z2;
+		z2 = a2*input - b2*output;
 
 		return output;
 	}
