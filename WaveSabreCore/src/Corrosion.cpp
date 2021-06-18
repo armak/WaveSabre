@@ -26,9 +26,8 @@ namespace WaveSabreCore
 
 	void Corrosion::Run(double songPosition, float **inputs, float **outputs, int numSamples)
 	{
-		// Note: multiply sample rate with oversampling factor if the behavior ever changes
-		// so that the DC filtering is done as part of the waveshaping function, i.e.:
-		// float(1 + int(oversampling)*int(oversampling))
+		// DC filter cutoff frequency at -3dB formula:
+		// R = 1 - (2Pi * frequency (Hz) / samplerate (Hz))
 		const float R_dc = 1.0f - (TwoPi * 10.0f) / (float(Helpers::CurrentSampleRate));
 
 		const float inputGainScalar  = Helpers::DbToScalar(inputGain);
@@ -40,74 +39,39 @@ namespace WaveSabreCore
 		const float param5 =  50.0f * (clipDrive*clipDrive);
 		const float param6 = Helpers::Mix(2.5f, 50.0f, clipShape*clipShape);
 
-		switch(oversampling)
+		buffer.submitSamples(inputs, numSamples);
+		buffer.upsample(numSamples);
+
+		const auto oversampleCount = buffer.getOversampleCount();
+
+		// Perform waveshaping on the oversampled buffer.
+		for(int i = 0; i < 2; ++i)
 		{
-			case OversamplingBuffer::Oversampling::X1:
+			for(int j = 0; j < oversampleCount; ++j)
 			{
-				for(int i = 0; i < 2; ++i)
-				{
-					for(int j = 0; j < numSamples; ++j)
-					{
-						const float input = inputs[i][j];
-						const float inputWithGain = input * inputGainScalar;
-						float v = shape(inputWithGain, param1, param2, param3, param4, param5, param6);
-
-						// DC offset removal.
-						if(dcBlocking == DCBlock::On)
-						{
-							const float newPreviousDC = v;
-							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
-							previousSampleDC[i] = newPreviousDC;
-							previousSampleNoDC[i] = v;
-						}
-
-						outputs[i][j] = Helpers::Mix(input, v*outputGainScalar, dryWet);
-					}
-				}
-
-				break;
+				buffer(i, j) = shape(inputGainScalar*buffer(i, j), param1, param2, param3, param4, param5, param6);
 			}
+		}
 
-			case OversamplingBuffer::Oversampling::X2:
-			case OversamplingBuffer::Oversampling::X4:
+		buffer.downsampleTo(outputs);
+
+		// Perform DC filtering, output gain and dry/wet mixing.
+		for(int i = 0; i < 2; ++i)
+		{
+			for(int j = 0; j  < numSamples; ++j)
 			{
-				buffer.submitSamples(inputs, numSamples);
-				buffer.upsample(numSamples);
+				float v = outputs[i][j];
 
-				const auto oversampleCount = buffer.getOversampleCount();
-
-				// Perform waveshaping on the oversampled buffer.
-				for(int i = 0; i < 2; ++i)
+				// DC offset removal.
+				if(dcBlocking == DCBlock::On)
 				{
-					for(int j = 0; j < oversampleCount; ++j)
-					{
-						buffer(i, j) = shape(inputGainScalar*buffer(i, j), param1, param2, param3, param4, param5, param6);
-					}
+					const float newPreviousDC = v;
+					v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
+					previousSampleDC[i] = newPreviousDC;
+					previousSampleNoDC[i] = v;
 				}
 
-				buffer.downsampleTo(outputs);
-
-				// Perform DC filtering, output gain and dry/wet mixing.
-				for(int i = 0; i < 2; ++i)
-				{
-					for(int j = 0; j  < numSamples; ++j)
-					{
-						float v = outputs[i][j];
-
-						// DC offset removal.
-						if(dcBlocking == DCBlock::On)
-						{
-							const float newPreviousDC = v;
-							v = v - previousSampleDC[i] + R_dc * previousSampleNoDC[i];
-							previousSampleDC[i] = newPreviousDC;
-							previousSampleNoDC[i] = v;
-						}
-
-						outputs[i][j] = Helpers::Mix(buffer.dry(i, j), v*outputGainScalar, dryWet);
-					}
-				}
-
-				break;
+				outputs[i][j] = Helpers::Mix(buffer.dry(i, j), v*outputGainScalar, dryWet);
 			}
 		}
 	}
