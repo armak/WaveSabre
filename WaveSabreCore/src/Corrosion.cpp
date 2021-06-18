@@ -35,9 +35,9 @@ namespace WaveSabreCore
 		const float param1 =  20.0f * (rectify * rectify);
 		const float param2 =  10.0f * (twist * twist);
 		const float param3 = 100.0f * (fold * fold);
-		const float param4 =  20.0f * (saturation*saturation);
-		const float param5 =  50.0f * (clipDrive*clipDrive);
-		const float param6 = Helpers::Mix(2.5f, 50.0f, clipShape*clipShape);
+		const float param4 =  20.0f * (saturation * saturation);
+		const float param5 =  50.0f * (clipDrive * clipDrive);
+		const float param6 =  47.5f * (clipShape * clipShape) + 2.5f;
 
 		buffer.submitSamples(inputs, numSamples);
 		buffer.upsample(numSamples);
