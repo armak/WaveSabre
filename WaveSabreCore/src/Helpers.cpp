@@ -64,6 +64,7 @@ static __declspec(naked) float __vectorcall fpuExp2F(float x)
 	}
 }
 
+<<<<<<< HEAD
 static __declspec(naked) double __vectorcall fpuPow(double x, double y)
 {
 	__asm
@@ -160,7 +161,7 @@ done:
 	}
 }
 
-static __declspec(naked) double __vectorcall fpuCos(double x)
+static __declspec(naked) double __vectorcall fpuSin(double x)
 {
 	__asm
 	{
@@ -168,7 +169,7 @@ static __declspec(naked) double __vectorcall fpuCos(double x)
 
 		movsd mmword ptr [esp], xmm0
 		fld qword ptr [esp]
-		fcos
+		fsin
 		fstp qword ptr [esp]
 		movsd xmm0, mmword ptr [esp]
 
@@ -185,21 +186,19 @@ namespace WaveSabreCore
 	int Helpers::CurrentTempo = 120;
 	int Helpers::RandomSeed = 1;
 
-	static const int fastCosTabLog2Size = 10; // size = 1024
-	static const int fastCosTabSize = (1 << fastCosTabLog2Size);
-	double Helpers::fastCosTab[fastCosTabSize + 1];
+	double Helpers::fastSinTab[adjustedFastSinTabSize];
 
 	void Helpers::Init()
 	{
 		RandomSeed = 1;
 
-		for (int i = 0; i < fastCosTabSize + 1; i++)
+		for (int i = 0; i < adjustedFastSinTabSize; i++)
 		{
-			double phase = double(i) * ((M_PI * 2) / fastCosTabSize);
+			double phase = double(i) * ((M_PI * 2) / fastSinTabSize);
 #if defined(_MSC_VER) && defined(_M_IX86)
-			fastCosTab[i] = fpuCos(phase);
+			fastSinTab[i] = fpuSin(phase);
 #else
-			fastCosTab[i] = cos(phase);
+			fastSinTab[i] = sin(phase);
 #endif
 		}
 	}
@@ -229,43 +228,50 @@ namespace WaveSabreCore
 
 	double Helpers::Pow(double x, double y)
 	{
+#if defined(_MSC_VER) && defined(_M_IX86)
 		return fpuPow(x, y);
+#else
+		return pow(x, y);
+#endif
 	}
 
 	float Helpers::PowF(float x, float y)
 	{
+#if defined(_MSC_VER) && defined(_M_IX86)
 		return fpuPowF(x, y);
+#else
+		return powf(x, y);
+#endif
 	}
 
 	double Helpers::FastCos(double x)
 	{
-		x = fabs(x); // cosine is symmetrical around 0, let's get rid of negative values
-
-		// normalize range from 0..2PI to 1..2
-		const auto phaseScale = 1.0 / (M_PI * 2);
-		auto phase = 1.0 + x * phaseScale;
-
-		auto phaseAsInt = *reinterpret_cast<unsigned long long *>(&phase);
-		int exponent = (phaseAsInt >> 52) - 1023;
-
-		const auto fractBits = 32 - fastCosTabLog2Size;
-		const auto fractScale = 1 << fractBits;
-		const auto fractMask = fractScale - 1;
-
-		auto significand = (unsigned int)((phaseAsInt << exponent) >> (52 - 32));
-		auto index = significand >> fractBits;
-		int fract = significand & fractMask;
-
-		auto left = fastCosTab[index];
-		auto right = fastCosTab[index + 1];
-
-		auto fractMix = fract * (1.0 / fractScale);
-		return left + (right - left) * fractMix;
+		return FastSin(x + M_PI_2);
 	}
 
 	double Helpers::FastSin(double x)
 	{
-		return FastCos(x - M_PI_2);
+		// normalize range from 0..2PI to 1..2
+		const auto phaseScale = 1.0 / (M_PI * 2);
+		x *= phaseScale;
+		auto phase = x - floor(x) + 1.0;
+
+		// the exponent is always 0 now, which allows us to use the significand bits directly
+		auto phaseAsInt = *reinterpret_cast<unsigned long long*>(&phase);
+
+		const auto fractBits = 32 - fastSinTabLog2Size;
+		const auto fractScale = 1 << fractBits;
+		const auto fractMask = fractScale - 1;
+
+		auto significand = (unsigned int)(phaseAsInt >> (52 - 32));
+		auto index = significand >> fractBits;
+		int fract = significand & fractMask;
+
+		auto left = fastSinTab[index];
+		auto right = fastSinTab[index + 1];
+
+		auto fractMix = fract * (1.0 / fractScale);
+		return left + (right - left) * fractMix;
 	}
 
 	double Helpers::Square135(double phase)
