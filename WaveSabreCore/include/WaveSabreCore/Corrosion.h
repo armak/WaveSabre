@@ -12,11 +12,13 @@ namespace WaveSabreCore
 		enum class ParamIndices
 		{
 			InputGain,
-			Even,
+			Rectify,
 			Twist,
 			Fold,
 			Saturation,
-			Clip,
+			ClipDrive,
+			ClipThreshold,
+			ClipShape,
 			OutputGain,
 			DryWet,
 			Oversampling,
@@ -34,7 +36,7 @@ namespace WaveSabreCore
 		virtual int GetProcessingDelay() const override;
 
 	private:
-		float shape(float input, float p1, float p2, float p3, float p4, float p5);
+		float shape(float input, float p1, float p2, float p3, float p4, float p5, float p6);
 
 		enum class DCBlock
 		{
@@ -43,13 +45,16 @@ namespace WaveSabreCore
 		};
 
 		static const float TwoPi;
+		static const float RectFact;
 
 		float inputGain;
-		float even;
+		float rectify;
 		float twist;
 		float fold;
 		float saturation;
-		float clip;
+		float clipDrive;
+		float clipThreshold;
+		float clipShape;
 		float outputGain;
 		float dryWet;
 		OversamplingBuffer::Oversampling oversampling;
