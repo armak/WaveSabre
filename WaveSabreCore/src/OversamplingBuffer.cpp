@@ -174,8 +174,12 @@ namespace WaveSabreCore
 			{
 				for(int i = 0; i < sampleCount; ++i)
 				{
-					oversampleBuffer[0][i] = inputBuffer[0].read(i);
-					oversampleBuffer[1][i] = inputBuffer[1].read(i);
+					const auto inputL = inputBuffer[0].read(i);
+					const auto inputR = inputBuffer[1].read(i);
+					oversampleBuffer[0][i] = inputL;
+					oversampleBuffer[1][i] = inputR;
+					dryBuffer[0][i] = inputL;
+					dryBuffer[1][i] = inputR;
 				}
 
 				break;
