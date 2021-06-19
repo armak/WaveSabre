@@ -56,9 +56,8 @@ namespace WaveSabreCore
 		float clipShape;
 		float outputGain;
 		float dryWet;
-		OversamplingBuffer::Oversampling oversampling;
-		DCBlock dcBlocking;
 
+		DCBlock dcBlocking;
 		OversamplingBuffer buffer;
 
 		float previousSampleDC[2]   = {};

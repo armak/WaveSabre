@@ -33,7 +33,6 @@ namespace WaveSabreCore
 		clipShape(1.0f),
 		outputGain(0.0f),
 		dryWet(1.0f),
-		oversampling(OversamplingBuffer::Oversampling::X1),
 		dcBlocking(DCBlock::Off),
 		buffer(OversamplingBuffer::Oversampling::X1)
 	{
@@ -157,12 +156,7 @@ namespace WaveSabreCore
 		case ParamIndices::ClipShape: clipShape = value; break;
 		case ParamIndices::OutputGain: outputGain = Helpers::ParamToDb(value, 12.0f); break;
 		case ParamIndices::DryWet: dryWet = value; break;
-		case ParamIndices::Oversampling:
-		{
-			oversampling = (OversamplingBuffer::Oversampling)(int)(value * 2.0f);
-			buffer.setOversampling(oversampling);
-			break;
-		}
+		case ParamIndices::Oversampling: buffer.setOversampling(static_cast<OversamplingBuffer::Oversampling>(2.0f*value)); break;
 		case ParamIndices::DCBlocking: dcBlocking = (DCBlock)(int)(value); break;
 		}
 	}
@@ -184,7 +178,7 @@ namespace WaveSabreCore
 		case ParamIndices::ClipShape: return clipShape;
 		case ParamIndices::OutputGain: return Helpers::DbToParam(outputGain, 12.0f);
 		case ParamIndices::DryWet: return dryWet;
-		case ParamIndices::Oversampling: return float(oversampling) / 2.0f;
+		case ParamIndices::Oversampling: return float(buffer.getOversampling()) / 2.0f;
 		case ParamIndices::DCBlocking: return float(dcBlocking);
 		}
 	}

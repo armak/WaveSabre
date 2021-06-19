@@ -20,6 +20,7 @@ namespace WaveSabreCore
 		virtual ~OversamplingBuffer();
 
 		void setOversampling(const Oversampling setting);
+		Oversampling getOversampling() const;
 		int getOversampleCount() const;
 		int getDelaySamples() const;
 

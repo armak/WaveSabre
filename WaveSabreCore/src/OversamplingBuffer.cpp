@@ -113,6 +113,11 @@ namespace WaveSabreCore
 		oversampling = setting;
 	}
 
+	OversamplingBuffer::Oversampling OversamplingBuffer::getOversampling() const
+	{
+		return oversampling;
+	}
+
 	int OversamplingBuffer::getOversampleCount() const
 	{
 		switch(oversampling)
