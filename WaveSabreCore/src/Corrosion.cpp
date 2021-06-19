@@ -3,6 +3,22 @@
 
 namespace WaveSabreCore
 {
+	static float tanhf(const float x, const float drive)
+	{
+		const float exponent = 2.0f*x * (1.0f + drive);
+		// Round to one in order to avoid floating point issues in the exponentiation
+		// and further calculations below.
+		if(exponent >= 16.0f)
+		{
+			return 1.0f;
+		}
+		else
+		{
+			const float exp = Helpers::PowF(M_E, exponent);
+			return (exp - 1.0f) / (exp + 1.0f);
+		}
+	}
+
 	const float Corrosion::TwoPi = 2.0f * static_cast<float>(M_PI);
 
 	Corrosion::Corrosion() :
@@ -75,24 +91,6 @@ namespace WaveSabreCore
 		}
 	}
 
-	static float tanhf(float x, const float k)
-	{
-		const float exponent = 2.0f * x * (1.0f + k);
-		// Round to one in order to avoid floating point issues in the exponentiation
-		// and further calculations below.
-		if(exponent >= 16.0f)
-		{
-			x = 1.0f;
-		}
-		else
-		{
-			const float exp = Helpers::PowF(M_E, exponent);
-			x = (exp - 1.0f) / (exp + 1.0f);
-		}
-
-		return x;
-	}
-
 	float Corrosion::shape(float input, float p1, float p2, float p3, float p4, float p5, float p6)
 	{
 		// Apply even harmonics to the signal.
@@ -109,7 +107,7 @@ namespace WaveSabreCore
 		if(p2 > 0.0f)
 		{
 			twist = static_cast<float>(Helpers::FastSin(twist * Helpers::Mix(1.0f, TwoPi, p2)));
-			twist = Helpers::Mix(rect, twist, Helpers::Clamp(20.0*p2, 0.0f, 1.0f));
+			twist = Helpers::Mix(rect, twist, Helpers::Clamp(20.0f*p2, 0.0f, 1.0f));
 		}
 		
 		// Apply foldback distortion.
@@ -119,7 +117,7 @@ namespace WaveSabreCore
 			fold *= (1.0f + p3);
 			if(fold > 1.0f || fold < -1.0f)
 				fold = fabsf(fabsf(fmodf(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
-			fold = Helpers::Mix(twist, fold, Helpers::Clamp(10.0*p3, 0.0f, 1.0f));
+			fold = Helpers::Mix(twist, fold, Helpers::Clamp(10.0f*p3, 0.0f, 1.0f));
 		}
 
 		// Apply odd harmonics saturation using tanh function.
@@ -139,7 +137,7 @@ namespace WaveSabreCore
 
 			x = x / Helpers::Pow(1.0 + Helpers::Pow(fabs(x), p6), 1.0/p6);
 
-			clip = x*clipThreshold;
+			clip = static_cast<float>(x) * clipThreshold;
 		}
 
 		return clip;
