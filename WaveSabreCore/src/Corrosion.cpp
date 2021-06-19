@@ -113,7 +113,7 @@ namespace WaveSabreCore
 		float fold = twist;
 		if(p3 > 0.0f)
 		{
-			fold *= (1.0f + p3);
+			fold *= 1.0f + p3;
 			if(fold > 1.0f || fold < -1.0f)
 				fold = fabsf(fabsf(fmodf(fold - 1.0f, 4.0f)) - 2.0f) - 1.0f;
 			fold = Helpers::Mix(twist, fold, Helpers::Clamp(10.0f*p3, 0.0f, 1.0f));
