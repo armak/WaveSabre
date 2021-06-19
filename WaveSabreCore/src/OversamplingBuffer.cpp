@@ -286,7 +286,7 @@ namespace WaveSabreCore
 						oversampleBuffer[i][j] = 4.0f * convolveSIMD(upsamplingBuffer[i], firResponse4, j, Taps4);
 					}
 
-					// The last samples frum current buffer need to be copied for the next round.
+					// The last samples from current buffer need to be copied for the next round.
 					for(int j = 0; j < Taps4; ++j)
 					{
 						previousBuffer[i][j] = inputBuffer[i].read(sampleCount - Taps4 + j);

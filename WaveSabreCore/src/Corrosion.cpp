@@ -4,7 +4,6 @@
 namespace WaveSabreCore
 {
 	const float Corrosion::TwoPi = 2.0f * static_cast<float>(M_PI);
-	const float Corrosion::RectFact = sqrtf(2.0f/static_cast<float>(M_PI));
 
 	Corrosion::Corrosion() :
 		Device((int)ParamIndices::NumParams),
@@ -100,8 +99,8 @@ namespace WaveSabreCore
 		float rect = input;
 		if(p1 > 0.0f)
 		{
-			// GELU rectification function approximation.
-			rect = rect * (1.0f + tanhf(RectFact*(rect + 0.044715f*rect*rect*rect), p1));
+			// GELU rectification function approximation, from https://arxiv.org/pdf/1606.08415v3.pdf.
+			rect = rect * (1.0f + tanhf(0.79788456f*(rect + 0.044715f*rect*rect*rect), p1));
 			rect = Helpers::Mix(input, rect, Helpers::Clamp(10.0f*p1, 0.0f, 1.0f));
 		}
 

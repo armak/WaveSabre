@@ -45,7 +45,6 @@ namespace WaveSabreCore
 		};
 
 		static const float TwoPi;
-		static const float RectFact;
 
 		float inputGain;
 		float rectify;
