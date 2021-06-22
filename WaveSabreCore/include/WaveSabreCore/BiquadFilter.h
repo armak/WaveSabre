@@ -9,6 +9,8 @@ namespace WaveSabreCore
 		Highpass,
 		Peak,
 		Allpass,
+		ButterworthLowpass,
+		ButterworthHighpass,
 	};
 
 	class BiquadFilter

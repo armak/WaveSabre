@@ -2,7 +2,7 @@
 #define __WAVESABRECORE_BUTTER_H__
 
 #include "Device.h"
-#include "ButterworthFilter.h"
+#include "BiquadFilter.h"
 
 namespace WaveSabreCore
 {
@@ -27,10 +27,30 @@ namespace WaveSabreCore
 		virtual float GetParam(int index) const;
 
 	private:
-		float cutoff, q;
-		ButterworthFilterType type;
-		ButterworthFilterOrder order;
-		ButterworthFilter lowpass[2][4];
+		enum class ButterworthFilterType
+		{
+			Lowpass,
+			Highpass,
+			Bandpass,
+			Bandstop
+		};
+
+		enum class ButterworthFilterOrder
+		{
+			Second,
+			Fourth,
+			Sixth,
+			Eighth
+		};
+
+		float cutoff = 1000.0f;
+		float q = 0.0f;
+		ButterworthFilterType type = ButterworthFilterType::Lowpass;
+		ButterworthFilterOrder order = ButterworthFilterOrder::Fourth;
+
+		BiquadFilter filterLP[2][4];
+		BiquadFilter filterHP[2][4];
+		float cascadeQTable[4][4] = {};
 	};
 }
 
