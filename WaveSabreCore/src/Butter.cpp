@@ -13,24 +13,29 @@ namespace WaveSabreCore
 			filterHP[1][i].SetType(BiquadFilterType::ButterworthHighpass);
 		}
 
-		// TODO: fold these eventually.
+		// Q factors for higher order cascaded butterworth filters sourced from:
+		// https://www.earlevel.com/main/2016/09/29/cascading-filters/
+		// These factors have been further divided by sqrt(2) in order to
+		// normalize them for the butterworth implementation.
+		// Factors not assigned here are initialized to zero and not used.
+		
 		// 2nd order.
-		cascadeQTable[0][0] = 0.70710678f/0.70710678f;
+		cascadeQTable[0][0] = 1.0f;
 
 		// 4nd order.
-		cascadeQTable[1][0] = 0.54119610f/0.70710678f;
-		cascadeQTable[1][1] = 1.3065630f/0.70710678f;
+		cascadeQTable[1][0] = 0.765366865808f;
+		cascadeQTable[1][1] = 1.847759117795f;
 
 		// 6nd order.
-		cascadeQTable[2][0] = 0.51763809f/0.70710678f;
-		cascadeQTable[2][1] = 0.70710678f/0.70710678f;
-		cascadeQTable[2][2] = 1.9318517f/0.70710678f;
+		cascadeQTable[2][0] = 0.732050808507f;
+		cascadeQTable[2][1] = 1.0f;
+		cascadeQTable[2][2] = 2.732050879218f;
 
 		// 8th order.
-		cascadeQTable[3][0] = 0.50979558f/0.70710678f;
-		cascadeQTable[3][1] = 0.60134489f/0.70710678f;
-		cascadeQTable[3][2] = 0.89997622f/0.70710678f;
-		cascadeQTable[3][3] = 2.5629154f/0.70710678f;
+		cascadeQTable[3][0] = 0.720959824484f;
+		cascadeQTable[3][1] = 0.850430100529f;
+		cascadeQTable[3][2] = 1.272758578273f;
+		cascadeQTable[3][3] = 3.624509723977f;
 	}
 
 	void Butter::Run(double songPosition, float **inputs, float **outputs, int numSamples)
@@ -38,8 +43,9 @@ namespace WaveSabreCore
 		const int cascadeCount = static_cast<int>(order);
 		// TODO: there's probably a more correct way to formulate the cascaded Q... look into it.
 		const float qf = 1.0f + 10.0f*q/(Helpers::PowF(static_cast<float>(1.0f + cascadeCount), 1.52f));
-		const float cutoffLow  = Helpers::Clamp(cutoff / (1.0f + 20.0f*q*q*q), 5.0f, 22000.0f);
-		const float cutoffHigh = Helpers::Clamp(cutoff * (1.0f + 20.0f*q*q*q), 5.0f, 22000.0f);
+		const float bwScaling = 1.0f + 20.0f*(q*q*q);
+		const float cutoffLow  = Helpers::Clamp(cutoff / bwScaling, 5.0f, 22000.0f);
+		const float cutoffHigh = Helpers::Clamp(cutoff * bwScaling, 5.0f, 22000.0f);
 		
 		// TODO: probably clean this up.
 		for (int i = 0; i < 2; i++)
