@@ -64,10 +64,6 @@ static __declspec(naked) float __vectorcall fpuExp2F(float x)
 	}
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> butterworth
 static __declspec(naked) double __vectorcall fpuPow(double x, double y)
 {
 	__asm
