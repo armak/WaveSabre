@@ -3,7 +3,7 @@
 
 #include "Device.h"
 #include "DelayBuffer.h"
-#include "ButterworthFilter.h"
+#include "BiquadFilter.h"
 
 namespace WaveSabreCore
 {
@@ -65,17 +65,17 @@ namespace WaveSabreCore
 
 		struct LinkwitzRileyCrossover
 		{
-			ButterworthFilter low[2][2] = {
-				ButterworthFilterType::Lowpass,
-				ButterworthFilterType::Lowpass,
-				ButterworthFilterType::Lowpass,
-				ButterworthFilterType::Lowpass
+			BiquadFilter low[2][2] = {
+				BiquadFilterType::ButterworthLowpass,
+				BiquadFilterType::ButterworthLowpass,
+				BiquadFilterType::ButterworthLowpass,
+				BiquadFilterType::ButterworthLowpass
 			};
-			ButterworthFilter high[2][2] = {
-				ButterworthFilterType::Highpass,
-				ButterworthFilterType::Highpass,
-				ButterworthFilterType::Highpass,
-				ButterworthFilterType::Highpass
+			BiquadFilter high[2][2] = {
+				BiquadFilterType::ButterworthHighpass,
+				BiquadFilterType::ButterworthHighpass,
+				BiquadFilterType::ButterworthHighpass,
+				BiquadFilterType::ButterworthHighpass
 			};
 
 			void setCutoff(const float freq)
@@ -85,7 +85,9 @@ namespace WaveSabreCore
 					for(int j = 0; j < 2; ++j)
 					{
 						low[i][j].SetFreq(freq);
+						low[i][j].SetQ(1.0f);
 						high[i][j].SetFreq(freq);
+						high[i][j].SetQ(1.0f);
 					}
 			}
 

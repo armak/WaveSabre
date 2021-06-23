@@ -19,6 +19,11 @@ namespace WaveSabreCore
 		lastOutput = lastLastOutput = 0.0f;
 	}
 
+	BiquadFilter::BiquadFilter(BiquadFilterType type) : BiquadFilter()
+	{
+		this->type = type;
+	}
+
 	float BiquadFilter::Next(float input)
 	{
 		if (recalculate)

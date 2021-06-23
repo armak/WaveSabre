@@ -17,6 +17,7 @@ namespace WaveSabreCore
 	{
 	public:
 		BiquadFilter();
+		BiquadFilter(BiquadFilterType type);
 
 		float Next(float input);
 
