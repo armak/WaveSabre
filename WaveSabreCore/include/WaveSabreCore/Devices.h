@@ -16,5 +16,9 @@
 #include "Twister.h"
 #include "Cathedral.h"
 #include "Corrosion.h"
+#include "Orbiter.h"
+#include "Zapper.h"
+#include "Butter.h"
+#include "Multiband.h"
 
 #endif

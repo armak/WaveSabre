@@ -58,6 +58,7 @@ namespace WaveSabreCore
 		float dryWet;
 
 		DCBlock dcBlocking;
+
 		OversamplingBuffer buffer;
 
 		float previousSampleDC[2]   = {};

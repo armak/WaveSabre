@@ -65,6 +65,9 @@ static __declspec(naked) float __vectorcall fpuExp2F(float x)
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> butterworth
 static __declspec(naked) double __vectorcall fpuPow(double x, double y)
 {
 	__asm
@@ -350,11 +353,45 @@ namespace WaveSabreCore
 		return sqrtf((freq - 20.0f) / (20000.0f - 20.0f));
 	}
 
+	float Helpers::ParamToWideFrequency(float param)
+	{
+		return 1.0f + (22050.0f - 1.0f) * param * param;
+	}
+
+	float Helpers::WideFrequencyToParam(float freq)
+	{
+		return sqrtf((freq - 1.0f) / (22050.0f - 1.0f));
+	}
+
 	float Helpers::ParamToQ(float param)
 	{
 		if (param < .5f)
 		{
 			return param / .5f * (1.0f - .33f) + .33f;
+		}
+		else
+		{
+			return (param - .5f) / .5f * 11.0f + 1.0f;
+		}
+	}
+
+	float Helpers::AllpassQToParam(float q)
+	{
+		if (q < 1.0f)
+		{
+			return (q - .025f) / (1.0f - .025f) * .5f;
+		}
+		else
+		{
+			return (q - 1.0f) / 11.0f * .5f + .5f;
+		}
+	}
+
+	float Helpers::ParamToAllpassQ(float param)
+	{
+		if (param < .5f)
+		{
+			return param / .5f * (1.0f - .025f) + .025f;
 		}
 		else
 		{

@@ -3,6 +3,8 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/AllPass.h
 	include/WaveSabreCore/AllPassDelay.h
 	include/WaveSabreCore/BiquadFilter.h
+	include/WaveSabreCore/Butter.h
+	include/WaveSabreCore/ButterworthFilter.h
 	include/WaveSabreCore/Cathedral.h
 	include/WaveSabreCore/Chamber.h
 	include/WaveSabreCore/Comb.h
@@ -16,7 +18,9 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/GmDls.h
 	include/WaveSabreCore/Helpers.h
 	include/WaveSabreCore/Leveller.h
+	include/WaveSabreCore/Multiband.h
 	include/WaveSabreCore/MxcsrFlagGuard.h
+	include/WaveSabreCore/Orbiter.h
 	include/WaveSabreCore/OversamplingBuffer.h
 	include/WaveSabreCore/ResampleBuffer.h
 	include/WaveSabreCore/SamplePlayer.h
@@ -28,10 +32,13 @@ add_library(WaveSabreCore
 	include/WaveSabreCore/SynthDevice.h
 	include/WaveSabreCore/Thunder.h
 	include/WaveSabreCore/Twister.h
+	include/WaveSabreCore/Zapper.h
 	src/Adultery.cpp
 	src/AllPass.cpp
 	src/AllPassDelay.cpp
 	src/BiquadFilter.cpp
+	src/Butter.cpp
+	src/ButterworthFilter.cpp
 	src/Cathedral.cpp
 	src/Chamber.cpp
 	src/Comb.cpp
@@ -45,7 +52,9 @@ add_library(WaveSabreCore
 	src/GmDls.cpp
 	src/Helpers.cpp
 	src/Leveller.cpp
+	src/Multiband.cpp
 	src/MxcsrFlagGuard.cpp
+	src/Orbiter.cpp
 	src/OversamplingBuffer.cpp
 	src/ResampleBuffer.cpp
 	src/SamplePlayer.cpp
@@ -56,7 +65,8 @@ add_library(WaveSabreCore
 	src/StateVariableFilter.cpp
 	src/SynthDevice.cpp
 	src/Thunder.cpp
-	src/Twister.cpp)
+	src/Twister.cpp
+	src/Zapper.cpp)
 
 target_link_libraries(WaveSabreCore Msacm32.lib)
 target_include_directories(WaveSabreCore PUBLIC include)
