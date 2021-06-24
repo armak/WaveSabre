@@ -28,7 +28,7 @@ namespace WaveSabreCore
 	{
 		if (recalculate)
 		{
-			float w0 = 2.0f * 3.141592f * freq / (float)Helpers::CurrentSampleRate;
+			float w0 = 6.2831853f * freq / (float)Helpers::CurrentSampleRate;
 
 			float alpha = (float)Helpers::FastSin(w0) / (2.0f * q);
 
@@ -37,83 +37,74 @@ namespace WaveSabreCore
 			switch (type)
 			{
 				case BiquadFilterType::Lowpass:
-					a0 = 1.0f + alpha;
-					a1 = -2.0f * (float)Helpers::FastCos(w0);
-					a2 = 1.0f - alpha;
-					b0 = (1.0f - (float)Helpers::FastCos(w0)) / 2.0f;
-					b1 = 1.0f - (float)Helpers::FastCos(w0);
-					b2 = (1.0f - (float)Helpers::FastCos(w0)) / 2.0f;
+					b0 = 1.0f / (1.0f + alpha);
+					a0 = (1.0f - (float)Helpers::FastCos(w0)) / 2.0f;
+					a1 = 1.0f - (float)Helpers::FastCos(w0);
+					a2 = (1.0f - (float)Helpers::FastCos(w0)) / 2.0f;
+					b1 = -2.0f * (float)Helpers::FastCos(w0);
+					b2 = 1.0f - alpha;
 					break;
 
 				case BiquadFilterType::Highpass:
-					a0 = 1.0f + alpha;
-					a1 = -2.0f * (float)Helpers::FastCos(w0);
-					a2 = 1.0f - alpha;
-					b0 = (1.0f + (float)Helpers::FastCos(w0)) / 2.0f;
-					b1 = -(1.0f + (float)Helpers::FastCos(w0));
-					b2 = (1.0f + (float)Helpers::FastCos(w0)) / 2.0f;
+					b0 = 1.0f / (1.0f + alpha);
+					a0 = (1.0f + (float)Helpers::FastCos(w0)) / 2.0f;
+					a1 = -(1.0f + (float)Helpers::FastCos(w0));
+					a2 = (1.0f + (float)Helpers::FastCos(w0)) / 2.0f;
+					b1 = -2.0f * (float)Helpers::FastCos(w0);
+					b2 = 1.0f - alpha;
 					break;
 
 				case BiquadFilterType::Peak:
 				{
 					float A = Helpers::Exp10F(gain / 40.0f);
-					a0 = 1.0f + alpha / A;
+					b0 = 1.0f / (1.0f + alpha / A);
+					a0 = 1.0f + alpha * A;
 					a1 = -2.0f * (float)Helpers::FastCos(w0);
-					a2 = 1.0f - alpha / A;
-					b0 = 1.0f + alpha * A;
+					a2 = 1.0f - alpha * A;
 					b1 = -2.0f * (float)Helpers::FastCos(w0);
-					b2 = 1.0f - alpha * A;
+					b2 = 1.0f - alpha / A;
 					break;
 				}
 
 				case BiquadFilterType::Allpass:
-					a0 = 1.0f + alpha;
+					b0 = 1.0f / (1.0f + alpha);
+					a0 = 1.0f - alpha;
 					a1 = -2.0f * (float)Helpers::FastCos(w0);
-					a2 = 1.0f - alpha;
-					b0 = 1.0f - alpha;
+					a2 = 1.0f + alpha;
 					b1 = -2.0f * (float)Helpers::FastCos(w0);
-					b2 = 1.0f + alpha;
+					b2 = 1.0f - alpha;
 					break;
 
 				case BiquadFilterType::ButterworthLowpass:
 				{
-					const float C = 1.0f / tanf(w0*0.5f);
-					a0 = 1.0f / (1.0f + 1.4142136f*C/q + C*C);
-					a1 = 2.0f*a0;
-					a2 = a0;
-					b1 = 2.0f*a0*(1.0f - C*C);
-					b2 = a0 * (1.0f - 1.4142136f*C/q + C*C);
+					const float C = 1.0f / static_cast<float>(Helpers::FastTan(w0*0.5));
+					b0 = 1.0f / (1.0f + 1.4142136f*C/q + C*C);
+					a0 = 1.0f;
+					a1 = 2.0f;
+					a2 = 1.0f;
+					b1 = 2.0f*(1.0f - C*C);
+					b2 = 1.0f - 1.4142136f*C/q + C*C;
 					break;
 				}
 
 				case BiquadFilterType::ButterworthHighpass:
 				{
-					const float C = tanf(w0*0.5f);
-					a0 = 1.0f / (1.0f + 1.4142136f*C/q + C*C);
-					a1 = -2.0f*a0;
-					a2 = a0;
-					b1 = 2.0f*a0*(C*C - 1.0f);
-					b2 = a0*(1.0f - 1.4142136f*C/q + C*C);
+					const float C = static_cast<float>(Helpers::FastTan(w0*0.5));
+					b0 = 1.0f / (1.0f + 1.4142136f*C/q + C*C);
+					a0 = 1.0f;
+					a1 = -2.0f;
+					a2 = 1.0f;
+					b1 = 2.0f*(C*C - 1.0f);
+					b2 = 1.0f - 1.4142136f*C/q + C*C;
 					break;
 				}
 			}
 
-			if(type < BiquadFilterType::ButterworthLowpass)
-			{
-				c1 = b0 / a0;
-				c2 = b1 / a0;
-				c3 = b2 / a0;
-				c4 = a1 / a0;
-				c5 = a2 / a0;
-			}
-			else
-			{
-				c1 = a0;
-				c2 = a1;
-				c3 = a2;
-				c4 = b1;
-				c5 = b2;
-			}
+			c1 = a0 * b0;
+			c2 = a1 * b0;
+			c3 = a2 * b0;
+			c4 = b1 * b0;
+			c5 = b2 * b0;
 
 			recalculate = false;
 		}

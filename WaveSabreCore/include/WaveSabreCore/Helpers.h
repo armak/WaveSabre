@@ -50,6 +50,7 @@ namespace WaveSabreCore
 
 		static double FastCos(double x);
 		static double FastSin(double x);
+		static double FastTan(double x);
 
 		static double NoteToFreq(double note);
 

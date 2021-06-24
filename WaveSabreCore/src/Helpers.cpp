@@ -273,6 +273,11 @@ namespace WaveSabreCore
 		return left + (right - left) * fractMix;
 	}
 
+	double Helpers::FastTan(double x)
+	{
+		return FastSin(x) / FastCos(x);
+	}
+
 	double Helpers::Square135(double phase)
 	{
 		return FastSin(phase) +
